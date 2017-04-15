@@ -1,4 +1,4 @@
-//! A table view implementation for [cursive](https://crates.io/crates/cursive).
+//! A basic table view implementation for [cursive](https://crates.io/crates/cursive).
 #![deny(
     missing_docs,
     missing_copy_implementations,
@@ -116,6 +116,8 @@ pub struct TableView<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static>
     sort_refs: Vec<usize>,
 
     on_sort: Option<Rc<Fn(&mut Cursive, H, Ordering)>>,
+    // TODO Pass drawing offsets into the handlers so a popup menu
+    // can be created easily?
     on_submit: Option<Rc<Fn(&mut Cursive, usize, usize)>>,
     on_select: Option<Rc<Fn(&mut Cursive, usize, usize)>>
 }
@@ -634,7 +636,7 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
                     ColorStyle::Highlight
 
                 } else {
-                    ColorStyle:: HighlightInactive
+                    ColorStyle::HighlightInactive
                 }
 
             } else {

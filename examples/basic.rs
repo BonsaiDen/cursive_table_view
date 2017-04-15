@@ -2,7 +2,7 @@
 // ----------------------------------------------------------------------------
 extern crate rand;
 extern crate cursive;
-extern crate curtable;
+extern crate cursive_table_view;
 
 
 // STD Dependencies -----------------------------------------------------------
@@ -21,7 +21,7 @@ use cursive::views::{Dialog, TextView};
 
 // Modules --------------------------------------------------------------------
 // ----------------------------------------------------------------------------
-use curtable::{TableView, TableViewItem};
+use cursive_table_view::{TableView, TableViewItem};
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 enum BasicColumn {

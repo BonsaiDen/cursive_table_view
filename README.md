@@ -1,6 +1,15 @@
-# curtable
+# cursive-table-view
 
-A table view implementation for [cursive](https://crates.io/crates/cursive).
+[![cursive-table-view on crates.io][cratesio-image]][cratesio]
+[![cursive-table-view on docs.rs][docsrs-image]][docsrs]
+
+[cratesio-image]: https://img.shields.io/crates/v/cursive_table_view.svg
+[cratesio]: https://crates.io/crates/cursive_table_view
+[docsrs-image]: https://docs.rs/cursive_table_view/badge.svg?version=0.3.0
+[docsrs]: https://docs.rs/cursive_table_view/0.3.0/
+
+A basic table view implementation for [cursive](https://crates.io/crates/cursive).
+
 
 ## Usage
 
@@ -8,13 +17,13 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-curtable = "0.1.0"
+cursive_table_view = "0.1.0"
 ```
 
 and this to your crate root:
 
 ```rust
-extern crate curtable;
+extern crate cursive_table_view;
 ```
 
 ## License
