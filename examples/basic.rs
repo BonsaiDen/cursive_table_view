@@ -98,31 +98,26 @@ fn main() {
 
     table.set_on_submit(|siv: &mut Cursive, row: usize, index: usize| {
 
-        let value = siv.call_on_id("table", |table: &mut TableView<Foo, BasicColumn>| {
-            let value = format!("{:?}", table.item(index).unwrap());
-            table.remove_item(index);
-            value
+        let value = siv.call_on_id("table", move |table: &mut TableView<Foo, BasicColumn>| {
+            format!("{:?}", table.borrow_item(index).unwrap())
 
         }).unwrap();
 
         siv.add_layer(
             Dialog::around(TextView::new(value))
                    .title(format!("Removing row # {}", row))
-                   .button("Close", |s| s.pop_layer())
+                   .button("Close", move |s| {
+                        s.call_on_id("table", |table: &mut TableView<Foo, BasicColumn>| {
+                            table.remove_item(index);
+                        });
+                        s.pop_layer()
+                   })
         );
 
     });
 
-    table.set_on_select(|siv: &mut Cursive, row: usize, index: usize| {
-        siv.add_layer(
-            Dialog::around(TextView::new(format!("{}", index)))
-                   .title(format!("Selected row # {}", row))
-                   .button("Close", |s| s.pop_layer())
-        );
-    });
-
-    siv.add_fullscreen_layer(
-        Dialog::around(table.with_id("table")).title("Table View").full_screen()
+    siv.add_layer(
+        Dialog::around(table.with_id("table").min_size((50, 20))).title("Table View")
     );
 
     siv.run();

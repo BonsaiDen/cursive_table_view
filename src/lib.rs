@@ -206,7 +206,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
 
         if !self.is_empty() {
 
-            let old_item = self.selected_item().unwrap();
+            let old_item = self.item().unwrap();
 
             let mut sort_refs = self.sort_refs.clone();
             sort_refs.sort_by(|a, b| {
@@ -219,7 +219,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             });
             self.sort_refs = sort_refs;
 
-            self.select_item(old_item);
+            self.set_selected_item(old_item);
 
         }
 
@@ -326,6 +326,29 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
         self.items.is_empty()
     }
 
+    /// Returns the index of the currently selected table row.
+    pub fn row(&self) -> Option<usize> {
+        if self.items.is_empty() {
+            None
+
+        } else {
+            Some(self.focus())
+        }
+    }
+
+    /// Selects the row at the specified index.
+    pub fn set_selected_row(&mut self, row_index: usize) {
+        self.focus.set(row_index);
+        self.scrollbase.scroll_to(row_index);
+    }
+
+    /// Selects the row at the specified index.
+    ///
+    /// Chainable variant.
+    pub fn selected_row(self, row_index: usize) -> Self {
+        self.with(|t| t.set_selected_row(row_index))
+    }
+
     /// Sets the contained items of the table.
     ///
     /// The order of the items will be preserved even when the table is sorted.
@@ -342,6 +365,8 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             self.sort_by(column, order);
         }
 
+        self.set_selected_row(0);
+
     }
 
     /// Sets the contained items of the table.
@@ -353,21 +378,21 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
         self.with(|t| t.set_items(items))
     }
 
-    /// Returns a immmutable references to the item at the specified index
+    /// Returns a immmutable reference to the item at the specified index
     /// within the underlying storage vector.
-    pub fn item(&mut self, index: usize) -> Option<&T> {
+    pub fn borrow_item(&mut self, index: usize) -> Option<&T> {
         self.items.get(index)
     }
 
-    /// Returns a mutable references to the item at the specified index within
+    /// Returns a mutable reference to the item at the specified index within
     /// the underlying storage vector.
-    pub fn item_mut(&mut self, index: usize) -> Option<&mut T> {
+    pub fn borrow_item_mut(&mut self, index: usize) -> Option<&mut T> {
         self.items.get_mut(index)
     }
 
     /// Returns the index of the currently selected item within the underlying
     /// storage vector.
-    pub fn selected_item(&self) -> Option<usize> {
+    pub fn item(&self) -> Option<usize> {
         if self.items.is_empty() {
             None
 
@@ -378,7 +403,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
 
     /// Selects the item at the specified index within the underlying storage
     /// vector.
-    pub fn select_item(&mut self, item_index: usize) {
+    pub fn set_selected_item(&mut self, item_index: usize) {
         // TODO optimize the performance for very large item lists
         if item_index < self.items.len() {
             for (index, item) in self.sort_refs.iter().enumerate() {
@@ -389,6 +414,14 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
                 }
             }
         }
+    }
+
+    /// Selects the item at the specified index within the underlying storage
+    /// vector.
+    ///
+    /// Chainable variant.
+    pub fn selected_item(self, item_index: usize) -> Self {
+        self.with(|t| t.set_selected_item(item_index))
     }
 
     /// Inserts a new item into the table.
@@ -416,7 +449,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
         if item_index < self.items.len() {
 
             // Move the selection if the currently selected item gets removed
-            if let Some(selected_index) = self.selected_item() {
+            if let Some(selected_index) = self.item() {
                 if selected_index == item_index {
                     self.focus_up(1);
                 }
@@ -449,25 +482,9 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     /// Removes all items from the underlying storage and returns them.
     pub fn take_items(&mut self) -> Vec<T> {
         self.scrollbase.set_heights(self.last_size.y.saturating_sub(2), 0);
-        self.select_row(0);
+        self.set_selected_row(0);
         self.sort_refs.clear();
         self.items.drain(0..).collect()
-    }
-
-    /// Returns the index of the currently selected table row.
-    pub fn selected_row(&self) -> Option<usize> {
-        if self.items.is_empty() {
-            None
-
-        } else {
-            Some(self.focus())
-        }
-    }
-
-    /// Selects the row at the specified index.
-    pub fn select_row(&mut self, row: usize) {
-        self.focus.set(row);
-        self.scrollbase.scroll_to(row);
     }
 
 }
@@ -784,8 +801,8 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
 
                 } else if !self.is_empty() && self.on_submit.is_some() {
                     let cb = self.on_submit.clone().unwrap();
-                    let row = self.selected_row().unwrap();
-                    let index = self.selected_item().unwrap();
+                    let row = self.row().unwrap();
+                    let index = self.item().unwrap();
                     return EventResult::Consumed(Some(Callback::from_fn(move |s| {
                         cb(s, row, index)
                     })));
@@ -798,8 +815,8 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
         self.scrollbase.scroll_to(focus);
 
         if !self.is_empty() && last_focus != focus {
-            let row = self.selected_row().unwrap();
-            let index = self.selected_item().unwrap();
+            let row = self.row().unwrap();
+            let index = self.item().unwrap();
             EventResult::Consumed(self.on_select.clone().map(|cb| {
                 Callback::from_fn(move |s| cb(s, row, index))
             }))
