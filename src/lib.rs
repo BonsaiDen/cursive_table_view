@@ -51,9 +51,9 @@ pub trait TableViewItem<H>: Clone + Sized
 ///
 /// ```
 /// # extern crate cursive;
-/// # extern crate curtable;
+/// # extern crate cursive_table_view;
 /// # use std::cmp::Ordering;
-/// # use curtable::{TableView, TableViewItem};
+/// # use cursive_table_view::{TableView, TableViewItem};
 /// # use cursive::align::HAlign;
 /// # fn main() {
 /// // Provide a type for the table's columns
