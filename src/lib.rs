@@ -617,11 +617,8 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
 
         self.draw_columns(printer, "╷ ", |printer, column| {
 
-            let color = if !self.enabled {
-                ColorStyle::Secondary
-
-            } else if column.order != Ordering::Equal || column.selected {
-                if self.column_select && column.selected {
+            let color = if column.order != Ordering::Equal || column.selected {
+                if self.column_select && column.selected && self.enabled && printer.focused {
                     ColorStyle::Highlight
 
                 } else {
@@ -645,11 +642,8 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
         let printer = &printer.sub_printer((0, 2), printer.size, true);
         self.scrollbase.draw(printer, |printer, i| {
 
-            let color = if !self.enabled {
-                ColorStyle::Secondary
-
-            } else if i == self.focus() {
-                if !self.column_select {
+            let color = if i == self.focus() {
+                if !self.column_select && self.enabled && printer.focused {
                     ColorStyle::Highlight
 
                 } else {
@@ -726,6 +720,10 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
     }
 
     fn on_event(&mut self, event: Event) -> EventResult {
+
+        if !self.enabled {
+            return EventResult::Ignored;
+        }
 
         let last_focus = self.focus();
         match event {
@@ -814,7 +812,10 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
         let focus = self.focus();
         self.scrollbase.scroll_to(focus);
 
-        if !self.is_empty() && last_focus != focus {
+        if self.column_select {
+            EventResult::Consumed(None)
+
+        } else if !self.is_empty() && last_focus != focus {
             let row = self.row().unwrap();
             let index = self.item().unwrap();
             EventResult::Consumed(self.on_select.clone().map(|cb| {
@@ -890,18 +891,19 @@ impl<H: Copy + Clone + 'static> TableColumn<H> {
 
     fn draw_header(&self, printer: &Printer) {
 
+        let order = match self.order {
+            Ordering::Less => "^",
+            Ordering::Greater => "v",
+            Ordering::Equal => " "
+        };
+
         let header = match self.alignment {
-            HAlign::Left => format!("{:<width$} [ ]", self.title, width=self.width.saturating_sub(4)),
-            HAlign::Right => format!("{:>width$} [ ]", self.title, width=self.width.saturating_sub(4)),
-            HAlign::Center => format!("{:^width$} [ ]", self.title, width=self.width.saturating_sub(4))
+            HAlign::Left => format!("{:<width$} [{}]", self.title, order, width=self.width.saturating_sub(4)),
+            HAlign::Right => format!("{:>width$} [{}]", self.title, order, width=self.width.saturating_sub(4)),
+            HAlign::Center => format!("{:^width$} [{}]", self.title, order, width=self.width.saturating_sub(4))
         };
 
         printer.print((0, 0), header.as_str());
-        printer.print((self.width.saturating_sub(2), 0), match self.order {
-            Ordering::Less => "^",
-            Ordering::Greater => "v",
-            Ordering::Equal => ""
-        });
 
     }
 
