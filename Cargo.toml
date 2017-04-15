@@ -20,5 +20,5 @@ termion-backend = ["cursive/termion-backend"]
 blt-backend = ["cursive/blt-backend"]
 
 [dev-dependencies]
-rand = "*"
+rand = "0.3.15"
 
