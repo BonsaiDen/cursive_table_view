@@ -2,7 +2,7 @@
 name = "cursive_table_view"
 version = "0.1.0"
 authors = ["Ivo Wetzel <ivo.wetzel@googlemail.com>"]
-description="A table view implementation for cursive."
+description = "A basic table view implementation for cursive."
 repository = "https://github.com/BonsaiDen/cursive_table_view.git"
 readme = "README.md"
 keywords = ["cursive", "ncurses", "TUI", "UI", "table"]
