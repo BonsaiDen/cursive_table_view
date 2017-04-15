@@ -5,8 +5,8 @@
 
 [cratesio-image]: https://img.shields.io/crates/v/cursive_table_view.svg
 [cratesio]: https://crates.io/crates/cursive_table_view
-[docsrs-image]: https://docs.rs/cursive_table_view/badge.svg?version=0.3.0
-[docsrs]: https://docs.rs/cursive_table_view/0.3.0/
+[docsrs-image]: https://docs.rs/cursive_table_view/badge.svg?version=0.1.0
+[docsrs]: https://docs.rs/cursive_table_view/0.1.0/
 
 A basic table view implementation for [cursive](https://crates.io/crates/cursive).
 
