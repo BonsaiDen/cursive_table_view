@@ -28,8 +28,8 @@ extern crate cursive_table_view;
 
 ### Different backends
 
-If you are using `cursive` with a different backend you'll need to *forward*
-the identical to features to your `cursive_table_view` dependency:
+If you are using `cursive` with a different backend, you'll need to *forward*
+the identical features to your `cursive_table_view` dependency:
 
 ```toml
 [dependencies.cursive]
