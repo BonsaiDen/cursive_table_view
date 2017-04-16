@@ -10,6 +10,7 @@
 
 A basic table view implementation for [cursive](https://crates.io/crates/cursive).
 
+![table](https://cloud.githubusercontent.com/assets/124674/25067632/a6784a56-2249-11e7-8885-50ba7058565f.png)
 
 ## Usage
 
