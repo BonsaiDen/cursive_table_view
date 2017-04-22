@@ -113,7 +113,7 @@ pub struct TableView<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static>
 
     focus: Rc<Cell<usize>>,
     items: Vec<T>,
-    sort_refs: Vec<usize>,
+    rows_to_items: Vec<usize>,
 
     on_sort: Option<Rc<Fn(&mut Cursive, H, Ordering)>>,
     // TODO Pass drawing offsets into the handlers so a popup menu
@@ -140,7 +140,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
 
             focus: Rc::new(Cell::new(0)),
             items: Vec::new(),
-            sort_refs: Vec::new(),
+            rows_to_items: Vec::new(),
 
             on_sort: None,
             on_submit: None,
@@ -188,8 +188,8 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
         self
     }
 
-    /// Sorts the table in the passed in `order` based on the values from the
-    /// specified table `column` from type `H` .
+    /// Sorts the table using the specified table `column` and the passed
+    /// `order`.
     pub fn sort_by(&mut self, column: H, order: Ordering) {
 
         if self.column_indicies.contains_key(&column) {
@@ -204,25 +204,30 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             }
         }
 
-        if !self.is_empty() {
+        self.sort_items(column, order);
 
-            let old_item = self.item().unwrap();
+    }
 
-            let mut sort_refs = self.sort_refs.clone();
-            sort_refs.sort_by(|a, b| {
-                if order == Ordering::Less {
-                    self.items[*a].cmp(&self.items[*b], column)
-
-                } else {
-                    self.items[*b].cmp(&self.items[*a], column)
-                }
-            });
-            self.sort_refs = sort_refs;
-
-            self.set_selected_item(old_item);
-
+    /// Sorts the table using the currently active column and its
+    /// ordering.
+    pub fn sort(&mut self) {
+        if let Some((column, order)) = self.order() {
+            self.sort_items(column, order);
         }
+    }
 
+    /// Returns the currently active column that is used for sorting
+    /// along with its ordering.
+    ///
+    /// Might return `None` if there are currently no items in the table
+    /// and it has not been sorted yet.
+    pub fn order(&self) -> Option<(H, Ordering)> {
+        for c in &self.columns {
+            if c.order != Ordering::Equal {
+                return Some((c.column, c.order));
+            }
+        }
+        None
     }
 
     /// Disables this view.
@@ -247,16 +252,34 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
         self.enabled
     }
 
-    /// Sets a callback to be used when a column is sorted.
+    /// Sets a callback to be used when a selected column is sorted by
+    /// pressing `<Enter>`.
+    ///
+    /// # Example
+    ///
+    /// ```norun
+    /// table.set_on_sort(|siv: &mut Cursive, column: BasicColumn, order: Ordering| {
+    ///
+    /// });
+    /// ```
     pub fn set_on_sort<F>(&mut self, cb: F)
         where F: Fn(&mut Cursive, H, Ordering) + 'static
     {
         self.on_sort = Some(Rc::new(move |s, h, o| cb(s, h, o)));
     }
 
-    /// Sets a callback to be used when a column is sorted.
+    /// Sets a callback to be used when a selected column is sorted by
+    /// pressing `<Enter>`.
     ///
     /// Chainable variant.
+    ///
+    /// # Example
+    ///
+    /// ```norun
+    /// table.on_sort(|siv: &mut Cursive, column: BasicColumn, order: Ordering| {
+    ///
+    /// });
+    /// ```
     pub fn on_sort<F>(self, cb: F) -> Self
         where F: Fn(&mut Cursive, H, Ordering) + 'static
     {
@@ -268,6 +291,14 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     ///
     /// Both the currently selected row and the index of the corresponding item
     /// within the underlying storage vector will be given to the callback.
+    ///
+    /// # Example
+    ///
+    /// ```norun
+    /// table.set_on_submit(|siv: &mut Cursive, row: usize, index: usize| {
+    ///
+    /// });
+    /// ```
     pub fn set_on_submit<F>(&mut self, cb: F)
         where F: Fn(&mut Cursive, usize, usize) + 'static
     {
@@ -281,6 +312,14 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     /// within the underlying storage vector will be given to the callback.
     ///
     /// Chainable variant.
+    ///
+    /// # Example
+    ///
+    /// ```norun
+    /// table.on_submit(|siv: &mut Cursive, row: usize, index: usize| {
+    ///
+    /// });
+    /// ```
     pub fn on_submit<F>(self, cb: F) -> Self
         where F: Fn(&mut Cursive, usize, usize) + 'static
     {
@@ -291,6 +330,14 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     ///
     /// Both the currently selected row and the index of the corresponding item
     /// within the underlying storage vector will be given to the callback.
+    ///
+    /// # Example
+    ///
+    /// ```norun
+    /// table.set_on_select(|siv: &mut Cursive, row: usize, index: usize| {
+    ///
+    /// });
+    /// ```
     pub fn set_on_select<F>(&mut self, cb: F)
         where F: Fn(&mut Cursive, usize, usize) + 'static
     {
@@ -303,6 +350,14 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     /// within the underlying storage vector will be given to the callback.
     ///
     /// Chainable variant.
+    ///
+    /// # Example
+    ///
+    /// ```norun
+    /// table.on_select(|siv: &mut Cursive, row: usize, index: usize| {
+    ///
+    /// });
+    /// ```
     pub fn on_select<F>(self, cb: F) -> Self
         where F: Fn(&mut Cursive, usize, usize) + 'static
     {
@@ -312,7 +367,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     /// Removes all items from this view.
     pub fn clear(&mut self) {
         self.items.clear();
-        self.sort_refs.clear();
+        self.rows_to_items.clear();
         self.focus.set(0);
     }
 
@@ -351,17 +406,18 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
 
     /// Sets the contained items of the table.
     ///
-    /// The order of the items will be preserved even when the table is sorted.
+    /// The currently active sort order is preserved and will be applied to all
+    /// items.
     pub fn set_items(&mut self, items: Vec<T>) {
 
         self.items = items;
-        self.sort_refs = Vec::with_capacity(self.items.len());
+        self.rows_to_items = Vec::with_capacity(self.items.len());
 
         for i in 0..self.items.len() {
-            self.sort_refs.push(i);
+            self.rows_to_items.push(i);
         }
 
-        if let Some((column, order)) = self.sort() {
+        if let Some((column, order)) = self.order() {
             self.sort_by(column, order);
         }
 
@@ -390,6 +446,18 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
         self.items.get_mut(index)
     }
 
+    /// Returns a immmutable reference to the items contained within the table.
+    pub fn borrow_items(&mut self) -> &Vec<T> {
+        &self.items
+    }
+
+    /// Returns a mutable reference to the items contained within the table.
+    ///
+    /// Can be used to modify the items in place.
+    pub fn borrow_items_mut(&mut self) -> &mut Vec<T> {
+        &mut self.items
+    }
+
     /// Returns the index of the currently selected item within the underlying
     /// storage vector.
     pub fn item(&self) -> Option<usize> {
@@ -397,7 +465,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             None
 
         } else {
-            Some(self.sort_refs[self.focus()])
+            Some(self.rows_to_items[self.focus()])
         }
     }
 
@@ -406,10 +474,10 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     pub fn set_selected_item(&mut self, item_index: usize) {
         // TODO optimize the performance for very large item lists
         if item_index < self.items.len() {
-            for (index, item) in self.sort_refs.iter().enumerate() {
+            for (row, item) in self.rows_to_items.iter().enumerate() {
                 if *item == item_index {
-                    self.focus.set(index);
-                    self.scrollbase.scroll_to(index);
+                    self.focus.set(row);
+                    self.scrollbase.scroll_to(row);
                     break;
                 }
             }
@@ -426,18 +494,19 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
 
     /// Inserts a new item into the table.
     ///
-    /// Sort order is preserved and the item will be inserted accordingly.
+    /// The currently active sort order is preserved and will be applied to the
+    /// newly inserted item.
     pub fn insert_item(&mut self, item: T) {
 
         self.items.push(item);
-        self.sort_refs.push(self.items.len());
+        self.rows_to_items.push(self.items.len());
 
         self.scrollbase.set_heights(
             self.last_size.y.saturating_sub(2),
-            self.sort_refs.len()
+            self.rows_to_items.len()
         );
 
-        if let Some((column, order)) = self.sort() {
+        if let Some((column, order)) = self.order() {
             self.sort_by(column, order);
         }
 
@@ -456,10 +525,10 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             }
 
             // Remove the sorted reference to the item
-            self.sort_refs.retain(|i| *i != item_index);
+            self.rows_to_items.retain(|i| *i != item_index);
 
             // Adjust remaining references
-            for ref_index in &mut self.sort_refs {
+            for ref_index in &mut self.rows_to_items {
                 if *ref_index > item_index {
                     *ref_index -= 1;
                 }
@@ -468,7 +537,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             // Update scroll height to prevent out of index drawing
             self.scrollbase.set_heights(
                 self.last_size.y.saturating_sub(2),
-                self.sort_refs.len()
+                self.rows_to_items.len()
             );
 
             // Remove actual item from the underlying storage
@@ -483,7 +552,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     pub fn take_items(&mut self) -> Vec<T> {
         self.scrollbase.set_heights(self.last_size.y.saturating_sub(2), 0);
         self.set_selected_row(0);
-        self.sort_refs.clear();
+        self.rows_to_items.clear();
         self.items.drain(0..).collect()
     }
 
@@ -520,18 +589,33 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
 
     }
 
-    fn sort(&self) -> Option<(H, Ordering)> {
-        for c in &self.columns {
-            if c.order != Ordering::Equal {
-                return Some((c.column, c.order));
-            }
+    fn sort_items(&mut self, column: H, order: Ordering) {
+        if !self.is_empty() {
+
+            let old_item = self.item().unwrap();
+
+            let mut rows_to_items = self.rows_to_items.clone();
+            rows_to_items.sort_by(|a, b| {
+                if order == Ordering::Less {
+                    self.items[*a].cmp(&self.items[*b], column)
+
+                } else {
+                    self.items[*b].cmp(&self.items[*a], column)
+                }
+            });
+            self.rows_to_items = rows_to_items;
+
+            self.set_selected_item(old_item);
+
         }
-        None
     }
 
     fn draw_item(&self, printer: &Printer, i: usize) {
         self.draw_columns(printer, "┆ ", |printer, column| {
-            let value = self.items[self.sort_refs[i]].to_column(column.column);
+            let value = self.items[
+                self.rows_to_items[i]
+
+            ].to_column(column.column);
             column.draw_row(printer, value.as_str());
         });
     }
