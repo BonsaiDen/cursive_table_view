@@ -14,7 +14,6 @@ extern crate cursive;
 // STD Dependencies -----------------------------------------------------------
 use std::rc::Rc;
 use std::hash::Hash;
-use std::cell::Cell;
 use std::cmp::{self, Ordering};
 use std::collections::HashMap;
 
@@ -49,7 +48,7 @@ pub trait TableViewItem<H>: Clone + Sized
 ///
 /// # Examples
 ///
-/// ```
+/// ```rust
 /// # extern crate cursive;
 /// # extern crate cursive_table_view;
 /// # use std::cmp::Ordering;
@@ -111,7 +110,7 @@ pub struct TableView<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static>
     columns: Vec<TableColumn<H>>,
     column_indicies: HashMap<H, usize>,
 
-    focus: Rc<Cell<usize>>,
+    focus: usize,
     items: Vec<T>,
     rows_to_items: Vec<usize>,
 
@@ -138,7 +137,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             columns: Vec::new(),
             column_indicies: HashMap::new(),
 
-            focus: Rc::new(Cell::new(0)),
+            focus: 0,
             items: Vec::new(),
             rows_to_items: Vec::new(),
 
@@ -368,7 +367,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     pub fn clear(&mut self) {
         self.items.clear();
         self.rows_to_items.clear();
-        self.focus.set(0);
+        self.focus = 0;
     }
 
     /// Returns the number of items in this table.
@@ -376,7 +375,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
         self.items.len()
     }
 
-    /// Returns `true` if this table has no item.
+    /// Returns `true` if this table has no items.
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
     }
@@ -387,13 +386,13 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             None
 
         } else {
-            Some(self.focus())
+            Some(self.focus)
         }
     }
 
     /// Selects the row at the specified index.
     pub fn set_selected_row(&mut self, row_index: usize) {
-        self.focus.set(row_index);
+        self.focus = row_index;
         self.scrollbase.scroll_to(row_index);
     }
 
@@ -465,7 +464,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             None
 
         } else {
-            Some(self.rows_to_items[self.focus()])
+            Some(self.rows_to_items[self.focus])
         }
     }
 
@@ -476,7 +475,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
         if item_index < self.items.len() {
             for (row, item) in self.rows_to_items.iter().enumerate() {
                 if *item == item_index {
-                    self.focus.set(row);
+                    self.focus = row;
                     self.scrollbase.scroll_to(row);
                     break;
                 }
@@ -620,19 +619,12 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
         });
     }
 
-    fn focus(&self) -> usize {
-        self.focus.get()
-    }
-
     fn focus_up(&mut self, n: usize) {
-        let focus = self.focus();
-        let n = cmp::min(focus, n);
-        self.focus.set(focus - n);
+        self.focus = self.focus - cmp::min(self.focus, n);
     }
 
     fn focus_down(&mut self, n: usize) {
-        let focus = cmp::min(self.focus() + n, self.items.len() - 1);
-        self.focus.set(focus);
+        self.focus = cmp::min(self.focus + n, self.items.len() - 1);
     }
 
     fn active_column(&self) -> usize {
@@ -726,7 +718,7 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
         let printer = &printer.sub_printer((0, 2), printer.size, true);
         self.scrollbase.draw(printer, |printer, i| {
 
-            let color = if i == self.focus() {
+            let color = if i == self.focus {
                 if !self.column_select && self.enabled && printer.focused {
                     ColorStyle::Highlight
 
@@ -809,7 +801,7 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
             return EventResult::Ignored;
         }
 
-        let last_focus = self.focus();
+        let last_focus = self.focus;
         match event {
             Event::Key(Key::Right) => {
                 if self.column_select {
@@ -831,7 +823,7 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
                     self.column_select = true;
                 }
             },
-            Event::Key(Key::Up) if self.focus() > 0 || self.column_select => {
+            Event::Key(Key::Up) if self.focus > 0 || self.column_select => {
                 if self.column_select {
                     self.column_cancel();
 
@@ -839,7 +831,7 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
                     self.focus_up(1);
                 }
             },
-            Event::Key(Key::Down) if self.focus() + 1 < self.items.len() || self.column_select => {
+            Event::Key(Key::Down) if self.focus + 1 < self.items.len() || self.column_select => {
                 if self.column_select {
                     self.column_cancel();
 
@@ -857,11 +849,11 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
             }
             Event::Key(Key::Home) => {
                 self.column_cancel();
-                self.focus.set(0);
+                self.focus = 0;
             },
             Event::Key(Key::End) => {
                 self.column_cancel();
-                self.focus.set(self.items.len() - 1);
+                self.focus = self.items.len() - 1;
             },
             Event::Key(Key::Enter) => {
                 if self.column_select {
@@ -893,7 +885,7 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
             _ => return EventResult::Ignored
         }
 
-        let focus = self.focus();
+        let focus = self.focus;
         self.scrollbase.scroll_to(focus);
 
         if self.column_select {
