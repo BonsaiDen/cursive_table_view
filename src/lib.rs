@@ -620,7 +620,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     }
 
     fn focus_up(&mut self, n: usize) {
-        self.focus = self.focus - cmp::min(self.focus, n);
+        self.focus -= cmp::min(self.focus, n);
     }
 
     fn focus_down(&mut self, n: usize) {
@@ -766,7 +766,7 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
 
         // Calculate widths for all requested columns
         let mut remaining_width = available_width;
-        for mut column in &mut sized {
+        for column in &mut sized {
             column.width = match *column.requested_width.as_ref().unwrap() {
                 TableColumnWidth::Percent(width) => cmp::min(
                     (size.x as f32 / 100.0 * width as f32).ceil() as usize,
@@ -779,7 +779,7 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
 
         // Spread the remaining with across the unsized columns
         let remaining_columns = usized.len();
-        for mut column in &mut usized {
+        for column in &mut usized {
             column.width = (
                 remaining_width as f32 / remaining_columns as f32
 
