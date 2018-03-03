@@ -695,14 +695,14 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
 
             let color = if column.order != Ordering::Equal || column.selected {
                 if self.column_select && column.selected && self.enabled && printer.focused {
-                    ColorStyle::Highlight
+                    ColorStyle::highlight()
 
                 } else {
-                    ColorStyle:: HighlightInactive
+                    ColorStyle:: highlight_inactive()
                 }
 
             } else {
-                ColorStyle::Primary
+                ColorStyle::primary()
             };
 
             printer.with_color(color, |printer| {
@@ -720,14 +720,14 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
 
             let color = if i == self.focus {
                 if !self.column_select && self.enabled && printer.focused {
-                    ColorStyle::Highlight
+                    ColorStyle::highlight()
 
                 } else {
-                    ColorStyle::HighlightInactive
+                    ColorStyle::highlight_inactive()
                 }
 
             } else {
-                ColorStyle::Primary
+                ColorStyle::primary()
             };
 
             printer.with_color(color, |printer| {
