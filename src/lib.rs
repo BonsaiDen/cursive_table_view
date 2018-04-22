@@ -20,9 +20,9 @@ use std::collections::HashMap;
 
 // External Dependencies ------------------------------------------------------
 use cursive::With;
+use cursive::theme;
 use cursive::vec::Vec2;
 use cursive::align::HAlign;
-use cursive::theme::ColorStyle;
 use cursive::{Cursive, Printer};
 use cursive::direction::Direction;
 use cursive::view::{ScrollBase, View};
@@ -420,6 +420,11 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             self.sort_by(column, order);
         }
 
+        self.scrollbase.set_heights(
+            self.last_size.y.saturating_sub(2),
+            self.rows_to_items.len()
+        );
+
         self.set_selected_row(0);
 
     }
@@ -591,7 +596,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     fn sort_items(&mut self, column: H, order: Ordering) {
         if !self.is_empty() {
 
-            let old_item = self.item().unwrap();
+            let old_item = self.item();
 
             let mut rows_to_items = self.rows_to_items.clone();
             rows_to_items.sort_by(|a, b| {
@@ -604,7 +609,9 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             });
             self.rows_to_items = rows_to_items;
 
-            self.set_selected_item(old_item);
+            if let Some(old_item) = old_item {
+                self.set_selected_item(old_item);
+            }
 
         }
     }
@@ -695,14 +702,14 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
 
             let color = if column.order != Ordering::Equal || column.selected {
                 if self.column_select && column.selected && self.enabled && printer.focused {
-                    ColorStyle::Highlight
+                    theme::ColorStyle::highlight()
 
                 } else {
-                    ColorStyle:: HighlightInactive
+                    theme::ColorStyle::highlight_inactive()
                 }
 
             } else {
-                ColorStyle::Primary
+                theme::ColorStyle::primary()
             };
 
             printer.with_color(color, |printer| {
@@ -720,19 +727,21 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
 
             let color = if i == self.focus {
                 if !self.column_select && self.enabled && printer.focused {
-                    ColorStyle::Highlight
+                    theme::ColorStyle::highlight()
 
                 } else {
-                    ColorStyle::HighlightInactive
+                    theme::ColorStyle::highlight_inactive()
                 }
 
             } else {
-                ColorStyle::Primary
+                theme::ColorStyle::primary()
             };
 
-            printer.with_color(color, |printer| {
-                self.draw_item(printer, i);
-            });
+            if i < self.items.len() {
+                printer.with_color(color, |printer| {
+                    self.draw_item(printer, i);
+                });
+            }
 
         });
 
@@ -792,7 +801,7 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
     }
 
     fn take_focus(&mut self, _: Direction) -> bool {
-        self.enabled && !self.items.is_empty()
+        self.enabled
     }
 
     fn on_event(&mut self, event: Event) -> EventResult {
