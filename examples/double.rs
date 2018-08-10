@@ -60,7 +60,7 @@ impl TableViewItem<BasicColumn> for Foo {
 
 fn main() {
 
-    let mut siv = Cursive::new();
+    let mut siv = Cursive::default();
 
     let mut layout = LinearLayout::new(Orientation::Horizontal);
     layout.add_child(create_table().min_size((32, 20)));

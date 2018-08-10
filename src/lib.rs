@@ -575,11 +575,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
         let column_count = self.columns.len();
         for (index, column) in self.columns.iter().enumerate() {
 
-            let printer = &printer.sub_printer(
-                (column_offset, 0),
-                printer.size,
-                true
-            );
+            let printer = &printer.offset((column_offset, 0)).focused(true);
 
             callback(printer, column);
 
@@ -718,11 +714,11 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
 
         });
 
-        self.draw_columns(&printer.sub_printer((0, 1), printer.size, true), "┴─", |printer, column| {
+        self.draw_columns(&printer.offset((0, 1)).focused(true), "┴─", |printer, column| {
             printer.print_hline((0, 0), column.width + 1, "─");
         });
 
-        let printer = &printer.sub_printer((0, 2), printer.size, true);
+        let printer = &printer.offset((0, 2)).focused(true);
         self.scrollbase.draw(printer, |printer, i| {
 
             let color = if i == self.focus {

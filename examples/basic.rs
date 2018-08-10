@@ -71,7 +71,7 @@ fn main() {
 
     let mut rng = rand::thread_rng();
 
-    let mut siv = Cursive::new();
+    let mut siv = Cursive::default();
     let mut table = TableView::<Foo, BasicColumn>::new()
         .column(BasicColumn::Name, "Name", |c| c.width_percent(20))
         .column(BasicColumn::Count, "Count", |c| c.align(HAlign::Center))
@@ -92,7 +92,7 @@ fn main() {
         siv.add_layer(
             Dialog::around(TextView::new(format!("{} / {:?}", column.as_str(), order)))
                    .title("Sorted by")
-                   .button("Close", |s| s.pop_layer())
+                   .button("Close", |s| drop(s.pop_layer())) // drop to avoid compile-time error 
         );
     });
 
@@ -110,7 +110,7 @@ fn main() {
                         s.call_on_id("table", |table: &mut TableView<Foo, BasicColumn>| {
                             table.remove_item(index);
                         });
-                        s.pop_layer()
+                        drop(s.pop_layer()) // drop to avoid compile-time error
                    })
         );
 
