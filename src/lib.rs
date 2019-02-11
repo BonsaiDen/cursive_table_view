@@ -44,6 +44,18 @@ where
         Self: Sized;
 }
 
+/// Callback used when a column is sorted.
+///
+/// It takes the column and the ordering as input.
+///
+/// This is a private type to help readability.
+type OnSortCallback<H> = Rc<Fn(&mut Cursive, H, Ordering)>;
+
+/// Callback taking as argument the row and the index of an element.
+///
+/// This is a private type to help readability.
+type IndexCallback = Rc<Fn(&mut Cursive, usize, usize)>;
+
 /// View to select an item among a list, supporting multiple columns for sorting.
 ///
 /// # Examples
@@ -114,11 +126,19 @@ pub struct TableView<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static>
     items: Vec<T>,
     rows_to_items: Vec<usize>,
 
-    on_sort: Option<Rc<Fn(&mut Cursive, H, Ordering)>>,
+    on_sort: Option<OnSortCallback<H>>,
     // TODO Pass drawing offsets into the handlers so a popup menu
     // can be created easily?
-    on_submit: Option<Rc<Fn(&mut Cursive, usize, usize)>>,
-    on_select: Option<Rc<Fn(&mut Cursive, usize, usize)>>,
+    on_submit: Option<IndexCallback>,
+    on_select: Option<IndexCallback>,
+}
+impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> Default for TableView<T, H> {
+    /// Creates a new empty `TableView` without any columns.
+    ///
+    /// See [`TableView::new()`].
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H> {
@@ -903,8 +923,8 @@ impl<H: Copy + Clone + 'static> TableColumn<H> {
 
     fn new(column: H, title: String) -> Self {
         Self {
-            column: column,
-            title: title,
+            column,
+            title,
             selected: false,
             alignment: HAlign::Left,
             order: Ordering::Equal,
