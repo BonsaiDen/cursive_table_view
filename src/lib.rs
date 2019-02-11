@@ -2,47 +2,47 @@
 #![deny(
     missing_docs,
     missing_copy_implementations,
-    trivial_casts, trivial_numeric_casts,
+    trivial_casts,
+    trivial_numeric_casts,
     unsafe_code,
-    unused_import_braces, unused_qualifications
+    unused_import_braces,
+    unused_qualifications
 )]
 
 // Crate Dependencies ---------------------------------------------------------
 extern crate cursive;
 
-
 // STD Dependencies -----------------------------------------------------------
-use std::rc::Rc;
-use std::hash::Hash;
 use std::cmp::{self, Ordering};
 use std::collections::HashMap;
-
+use std::hash::Hash;
+use std::rc::Rc;
 
 // External Dependencies ------------------------------------------------------
-use cursive::With;
+use cursive::align::HAlign;
+use cursive::direction::Direction;
+use cursive::event::{Callback, Event, EventResult, Key};
 use cursive::theme;
 use cursive::vec::Vec2;
-use cursive::align::HAlign;
-use cursive::{Cursive, Printer};
-use cursive::direction::Direction;
 use cursive::view::{ScrollBase, View};
-use cursive::event::{Callback, Event, EventResult, Key};
-
+use cursive::With;
+use cursive::{Cursive, Printer};
 
 /// A trait for displaying and sorting items inside a
 /// [`TableView`](struct.TableView.html).
 pub trait TableViewItem<H>: Clone + Sized
-    where H: Eq + Hash + Copy + Clone + 'static {
-
+where
+    H: Eq + Hash + Copy + Clone + 'static,
+{
     /// Method returning a string representation of the item for the
     /// specified column from type `H`.
     fn to_column(&self, column: H) -> String;
 
     /// Method comparing two items via their specified column from type `H`.
-    fn cmp(&self, other: &Self, column: H) -> Ordering where Self: Sized;
-
+    fn cmp(&self, other: &Self, column: H) -> Ordering
+    where
+        Self: Sized;
 }
-
 
 /// View to select an item among a list, supporting multiple columns for sorting.
 ///
@@ -118,11 +118,10 @@ pub struct TableView<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static>
     // TODO Pass drawing offsets into the handlers so a popup menu
     // can be created easily?
     on_submit: Option<Rc<Fn(&mut Cursive, usize, usize)>>,
-    on_select: Option<Rc<Fn(&mut Cursive, usize, usize)>>
+    on_select: Option<Rc<Fn(&mut Cursive, usize, usize)>>,
 }
 
 impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H> {
-
     /// Creates a new empty `TableView` without any columns.
     ///
     /// A TableView should be accompanied by a enum of type `H` representing
@@ -143,7 +142,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
 
             on_sort: None,
             on_submit: None,
-            on_select: None
+            on_select: None,
         }
     }
 
@@ -156,16 +155,15 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
         mut self,
         column: H,
         title: S,
-        callback: C
-
+        callback: C,
     ) -> Self {
         self.column_indicies.insert(column, self.columns.len());
-        self.columns.push(callback(TableColumn::new(column, title.into())));
+        self.columns
+            .push(callback(TableColumn::new(column, title.into())));
 
         // Make the first colum the default one
         if self.columns.len() == 1 {
             self.default_column(column)
-
         } else {
             self
         }
@@ -178,7 +176,6 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
                 c.selected = c.column == column;
                 if c.selected {
                     c.order = c.default_order;
-
                 } else {
                     c.order = Ordering::Equal;
                 }
@@ -190,13 +187,11 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     /// Sorts the table using the specified table `column` and the passed
     /// `order`.
     pub fn sort_by(&mut self, column: H, order: Ordering) {
-
         if self.column_indicies.contains_key(&column) {
             for c in &mut self.columns {
                 c.selected = c.column == column;
                 if c.selected {
                     c.order = order;
-
                 } else {
                     c.order = Ordering::Equal;
                 }
@@ -204,7 +199,6 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
         }
 
         self.sort_items(column, order);
-
     }
 
     /// Sorts the table using the currently active column and its
@@ -262,7 +256,8 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     /// });
     /// ```
     pub fn set_on_sort<F>(&mut self, cb: F)
-        where F: Fn(&mut Cursive, H, Ordering) + 'static
+    where
+        F: Fn(&mut Cursive, H, Ordering) + 'static,
     {
         self.on_sort = Some(Rc::new(move |s, h, o| cb(s, h, o)));
     }
@@ -280,7 +275,8 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     /// });
     /// ```
     pub fn on_sort<F>(self, cb: F) -> Self
-        where F: Fn(&mut Cursive, H, Ordering) + 'static
+    where
+        F: Fn(&mut Cursive, H, Ordering) + 'static,
     {
         self.with(|t| t.set_on_sort(cb))
     }
@@ -299,7 +295,8 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     /// });
     /// ```
     pub fn set_on_submit<F>(&mut self, cb: F)
-        where F: Fn(&mut Cursive, usize, usize) + 'static
+    where
+        F: Fn(&mut Cursive, usize, usize) + 'static,
     {
         self.on_submit = Some(Rc::new(move |s, row, index| cb(s, row, index)));
     }
@@ -320,7 +317,8 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     /// });
     /// ```
     pub fn on_submit<F>(self, cb: F) -> Self
-        where F: Fn(&mut Cursive, usize, usize) + 'static
+    where
+        F: Fn(&mut Cursive, usize, usize) + 'static,
     {
         self.with(|t| t.set_on_submit(cb))
     }
@@ -338,7 +336,8 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     /// });
     /// ```
     pub fn set_on_select<F>(&mut self, cb: F)
-        where F: Fn(&mut Cursive, usize, usize) + 'static
+    where
+        F: Fn(&mut Cursive, usize, usize) + 'static,
     {
         self.on_select = Some(Rc::new(move |s, row, index| cb(s, row, index)));
     }
@@ -358,7 +357,8 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     /// });
     /// ```
     pub fn on_select<F>(self, cb: F) -> Self
-        where F: Fn(&mut Cursive, usize, usize) + 'static
+    where
+        F: Fn(&mut Cursive, usize, usize) + 'static,
     {
         self.with(|t| t.set_on_select(cb))
     }
@@ -384,7 +384,6 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     pub fn row(&self) -> Option<usize> {
         if self.items.is_empty() {
             None
-
         } else {
             Some(self.focus)
         }
@@ -408,7 +407,6 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     /// The currently active sort order is preserved and will be applied to all
     /// items.
     pub fn set_items(&mut self, items: Vec<T>) {
-
         self.items = items;
         self.rows_to_items = Vec::with_capacity(self.items.len());
 
@@ -420,13 +418,10 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             self.sort_by(column, order);
         }
 
-        self.scrollbase.set_heights(
-            self.last_size.y.saturating_sub(2),
-            self.rows_to_items.len()
-        );
+        self.scrollbase
+            .set_heights(self.last_size.y.saturating_sub(2), self.rows_to_items.len());
 
         self.set_selected_row(0);
-
     }
 
     /// Sets the contained items of the table.
@@ -467,7 +462,6 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     pub fn item(&self) -> Option<usize> {
         if self.items.is_empty() {
             None
-
         } else {
             Some(self.rows_to_items[self.focus])
         }
@@ -501,26 +495,21 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     /// The currently active sort order is preserved and will be applied to the
     /// newly inserted item.
     pub fn insert_item(&mut self, item: T) {
-
         self.items.push(item);
         self.rows_to_items.push(self.items.len());
 
-        self.scrollbase.set_heights(
-            self.last_size.y.saturating_sub(2),
-            self.rows_to_items.len()
-        );
+        self.scrollbase
+            .set_heights(self.last_size.y.saturating_sub(2), self.rows_to_items.len());
 
         if let Some((column, order)) = self.order() {
             self.sort_by(column, order);
         }
-
     }
 
     /// Removes the item at the specified index within the underlying storage
     /// vector and returns it.
     pub fn remove_item(&mut self, item_index: usize) -> Option<T> {
         if item_index < self.items.len() {
-
             // Move the selection if the currently selected item gets removed
             if let Some(selected_index) = self.item() {
                 if selected_index == item_index {
@@ -539,14 +528,11 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             }
 
             // Update scroll height to prevent out of index drawing
-            self.scrollbase.set_heights(
-                self.last_size.y.saturating_sub(2),
-                self.rows_to_items.len()
-            );
+            self.scrollbase
+                .set_heights(self.last_size.y.saturating_sub(2), self.rows_to_items.len());
 
             // Remove actual item from the underlying storage
             Some(self.items.remove(item_index))
-
         } else {
             None
         }
@@ -554,27 +540,24 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
 
     /// Removes all items from the underlying storage and returns them.
     pub fn take_items(&mut self) -> Vec<T> {
-        self.scrollbase.set_heights(self.last_size.y.saturating_sub(2), 0);
+        self.scrollbase
+            .set_heights(self.last_size.y.saturating_sub(2), 0);
         self.set_selected_row(0);
         self.rows_to_items.clear();
         self.items.drain(0..).collect()
     }
-
 }
 
 impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H> {
-
     fn draw_columns<C: Fn(&Printer, &TableColumn<H>)>(
         &self,
         printer: &Printer,
         sep: &str,
-        callback: C
+        callback: C,
     ) {
-
         let mut column_offset = 0;
         let column_count = self.columns.len();
         for (index, column) in self.columns.iter().enumerate() {
-
             let printer = &printer.offset((column_offset, 0)).focused(true);
 
             callback(printer, column);
@@ -584,21 +567,17 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             }
 
             column_offset += column.width + 3;
-
         }
-
     }
 
     fn sort_items(&mut self, column: H, order: Ordering) {
         if !self.is_empty() {
-
             let old_item = self.item();
 
             let mut rows_to_items = self.rows_to_items.clone();
             rows_to_items.sort_by(|a, b| {
                 if order == Ordering::Less {
                     self.items[*a].cmp(&self.items[*b], column)
-
                 } else {
                     self.items[*b].cmp(&self.items[*a], column)
                 }
@@ -608,16 +587,12 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             if let Some(old_item) = old_item {
                 self.set_selected_item(old_item);
             }
-
         }
     }
 
     fn draw_item(&self, printer: &Printer, i: usize) {
         self.draw_columns(printer, "┆ ", |printer, column| {
-            let value = self.items[
-                self.rows_to_items[i]
-
-            ].to_column(column.column);
+            let value = self.items[self.rows_to_items[i]].to_column(column.column);
             column.draw_row(printer, value.as_str());
         });
     }
@@ -647,7 +622,6 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             self.columns[column].selected = false;
             self.columns[column + 1].selected = true;
             true
-
         } else {
             false
         }
@@ -659,51 +633,43 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             self.columns[column].selected = false;
             self.columns[column - 1].selected = true;
             true
-
         } else {
             false
         }
     }
 
     fn column_select(&mut self) {
-
         let next = self.active_column();
         let column = self.columns[next].column;
-        let current = self.columns.iter().position(|c| {
-            c.order != Ordering::Equal
-
-        }).unwrap_or(0);
+        let current = self
+            .columns
+            .iter()
+            .position(|c| c.order != Ordering::Equal)
+            .unwrap_or(0);
 
         let order = if current != next {
             self.columns[next].default_order
-
         } else if self.columns[current].order == Ordering::Less {
             Ordering::Greater
-
         } else {
             Ordering::Less
         };
 
         self.sort_by(column, order);
-
     }
-
 }
 
-impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View for TableView<T, H> {
-
+impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View
+    for TableView<T, H>
+{
     fn draw(&self, printer: &Printer) {
-
         self.draw_columns(printer, "╷ ", |printer, column| {
-
             let color = if column.order != Ordering::Equal || column.selected {
                 if self.column_select && column.selected && self.enabled && printer.focused {
                     theme::ColorStyle::highlight()
-
                 } else {
                     theme::ColorStyle::highlight_inactive()
                 }
-
             } else {
                 theme::ColorStyle::primary()
             };
@@ -711,24 +677,24 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
             printer.with_color(color, |printer| {
                 column.draw_header(printer);
             });
-
         });
 
-        self.draw_columns(&printer.offset((0, 1)).focused(true), "┴─", |printer, column| {
-            printer.print_hline((0, 0), column.width + 1, "─");
-        });
+        self.draw_columns(
+            &printer.offset((0, 1)).focused(true),
+            "┴─",
+            |printer, column| {
+                printer.print_hline((0, 0), column.width + 1, "─");
+            },
+        );
 
         let printer = &printer.offset((0, 2)).focused(true);
         self.scrollbase.draw(printer, |printer, i| {
-
             let color = if i == self.focus {
                 if !self.column_select && self.enabled && printer.focused {
                     theme::ColorStyle::highlight()
-
                 } else {
                     theme::ColorStyle::highlight_inactive()
                 }
-
             } else {
                 theme::ColorStyle::primary()
             };
@@ -738,13 +704,10 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
                     self.draw_item(printer, i);
                 });
             }
-
         });
-
     }
 
     fn layout(&mut self, size: Vec2) {
-
         if size == self.last_size {
             return;
         }
@@ -753,16 +716,13 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
         let column_count = self.columns.len();
 
         // Split up all columns into sized / unsized groups
-        let (mut sized, mut usized): (
-            Vec<&mut TableColumn<H>>,
-            Vec<&mut TableColumn<H>>
-
-        ) = self.columns.iter_mut().partition(|c| c.requested_width.is_some());
+        let (mut sized, mut usized): (Vec<&mut TableColumn<H>>, Vec<&mut TableColumn<H>>) = self
+            .columns
+            .iter_mut()
+            .partition(|c| c.requested_width.is_some());
 
         // Subtract one for the seperators between our columns (that's column_count - 1)
-        let mut available_width = size.x.saturating_sub(
-            column_count.saturating_sub(1) * 3
-        );
+        let mut available_width = size.x.saturating_sub(column_count.saturating_sub(1) * 3);
 
         // Reduce the with in case we are displaying a scrollbar
         if size.y.saturating_sub(1) < item_count {
@@ -775,9 +735,9 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
             column.width = match *column.requested_width.as_ref().unwrap() {
                 TableColumnWidth::Percent(width) => cmp::min(
                     (size.x as f32 / 100.0 * width as f32).ceil() as usize,
-                    remaining_width
+                    remaining_width,
                 ),
-                TableColumnWidth::Absolute(width) => width
+                TableColumnWidth::Absolute(width) => width,
             };
             remaining_width = remaining_width.saturating_sub(column.width);
         }
@@ -785,15 +745,12 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
         // Spread the remaining with across the unsized columns
         let remaining_columns = usized.len();
         for column in &mut usized {
-            column.width = (
-                remaining_width as f32 / remaining_columns as f32
-
-            ).floor() as usize;
+            column.width = (remaining_width as f32 / remaining_columns as f32).floor() as usize;
         }
 
-        self.scrollbase.set_heights(size.y.saturating_sub(2), item_count);
+        self.scrollbase
+            .set_heights(size.y.saturating_sub(2), item_count);
         self.last_size = size;
-
     }
 
     fn take_focus(&mut self, _: Direction) -> bool {
@@ -801,7 +758,6 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
     }
 
     fn on_event(&mut self, event: Event) -> EventResult {
-
         if !self.enabled {
             return EventResult::Ignored;
         }
@@ -813,41 +769,37 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
                     if !self.column_next() {
                         return EventResult::Ignored;
                     }
-
                 } else {
                     self.column_select = true;
                 }
-            },
+            }
             Event::Key(Key::Left) => {
                 if self.column_select {
                     if !self.column_prev() {
                         return EventResult::Ignored;
                     }
-
                 } else {
                     self.column_select = true;
                 }
-            },
+            }
             Event::Key(Key::Up) if self.focus > 0 || self.column_select => {
                 if self.column_select {
                     self.column_cancel();
-
                 } else {
                     self.focus_up(1);
                 }
-            },
+            }
             Event::Key(Key::Down) if self.focus + 1 < self.items.len() || self.column_select => {
                 if self.column_select {
                     self.column_cancel();
-
                 } else {
                     self.focus_down(1);
                 }
-            },
+            }
             Event::Key(Key::PageUp) => {
                 self.column_cancel();
                 self.focus_up(10);
-            },
+            }
             Event::Key(Key::PageDown) => {
                 self.column_cancel();
                 self.focus_down(10);
@@ -855,18 +807,16 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
             Event::Key(Key::Home) => {
                 self.column_cancel();
                 self.focus = 0;
-            },
+            }
             Event::Key(Key::End) => {
                 self.column_cancel();
                 self.focus = self.items.len() - 1;
-            },
+            }
             Event::Key(Key::Enter) => {
                 if self.column_select {
-
                     self.column_select();
 
                     if self.on_sort.is_some() {
-
                         let c = &self.columns[self.active_column()];
                         let column = c.column;
                         let order = c.order;
@@ -875,9 +825,7 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
                         return EventResult::Consumed(Some(Callback::from_fn(move |s| {
                             cb(s, column, order)
                         })));
-
                     }
-
                 } else if !self.is_empty() && self.on_submit.is_some() {
                     let cb = self.on_submit.clone().unwrap();
                     let row = self.row().unwrap();
@@ -886,8 +834,8 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
                         cb(s, row, index)
                     })));
                 }
-            },
-            _ => return EventResult::Ignored
+            }
+            _ => return EventResult::Ignored,
         }
 
         let focus = self.focus;
@@ -895,22 +843,19 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View 
 
         if self.column_select {
             EventResult::Consumed(None)
-
         } else if !self.is_empty() && last_focus != focus {
             let row = self.row().unwrap();
             let index = self.item().unwrap();
-            EventResult::Consumed(self.on_select.clone().map(|cb| {
-                Callback::from_fn(move |s| cb(s, row, index))
-            }))
-
+            EventResult::Consumed(
+                self.on_select
+                    .clone()
+                    .map(|cb| Callback::from_fn(move |s| cb(s, row, index))),
+            )
         } else {
             EventResult::Ignored
         }
-
     }
-
 }
-
 
 /// A type used for the construction of columns in a
 /// [`TableView`](struct.TableView.html).
@@ -927,11 +872,10 @@ pub struct TableColumn<H: Copy + Clone + 'static> {
 
 enum TableColumnWidth {
     Percent(usize),
-    Absolute(usize)
+    Absolute(usize),
 }
 
 impl<H: Copy + Clone + 'static> TableColumn<H> {
-
     /// Sets the default ordering of the column.
     pub fn ordering(mut self, order: Ordering) -> Self {
         self.default_order = order;
@@ -966,39 +910,48 @@ impl<H: Copy + Clone + 'static> TableColumn<H> {
             order: Ordering::Equal,
             width: 0,
             default_order: Ordering::Less,
-            requested_width: None
+            requested_width: None,
         }
     }
 
     fn draw_header(&self, printer: &Printer) {
-
         let order = match self.order {
             Ordering::Less => "^",
             Ordering::Greater => "v",
-            Ordering::Equal => " "
+            Ordering::Equal => " ",
         };
 
         let header = match self.alignment {
-            HAlign::Left => format!("{:<width$} [{}]", self.title, order, width=self.width.saturating_sub(4)),
-            HAlign::Right => format!("{:>width$} [{}]", self.title, order, width=self.width.saturating_sub(4)),
-            HAlign::Center => format!("{:^width$} [{}]", self.title, order, width=self.width.saturating_sub(4))
+            HAlign::Left => format!(
+                "{:<width$} [{}]",
+                self.title,
+                order,
+                width = self.width.saturating_sub(4)
+            ),
+            HAlign::Right => format!(
+                "{:>width$} [{}]",
+                self.title,
+                order,
+                width = self.width.saturating_sub(4)
+            ),
+            HAlign::Center => format!(
+                "{:^width$} [{}]",
+                self.title,
+                order,
+                width = self.width.saturating_sub(4)
+            ),
         };
 
         printer.print((0, 0), header.as_str());
-
     }
 
     fn draw_row(&self, printer: &Printer, value: &str) {
-
         let value = match self.alignment {
-            HAlign::Left => format!("{:<width$} ", value, width=self.width),
-            HAlign::Right => format!("{:>width$} ", value, width=self.width),
-            HAlign::Center => format!("{:^width$} ", value, width=self.width)
+            HAlign::Left => format!("{:<width$} ", value, width = self.width),
+            HAlign::Right => format!("{:>width$} ", value, width = self.width),
+            HAlign::Center => format!("{:^width$} ", value, width = self.width),
         };
 
         printer.print((0, 0), value.as_str());
-
     }
-
 }
-
