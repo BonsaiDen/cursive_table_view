@@ -18,7 +18,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-cursive_table_view = "0.7.0"
+cursive_table_view = "0.8.0"
 ```
 
 and this to your crate root:
@@ -39,7 +39,7 @@ default-features = false
 features = ["blt-backend"]
 
 [dependencies.cursive_table_view]
-version = "0.7.0"
+version = "0.8.0"
 default-features = false
 features = ["blt-backend"]
 ```
@@ -57,4 +57,3 @@ at your option.
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you shall be dual licensed as above, without any
 additional terms or conditions.
-
