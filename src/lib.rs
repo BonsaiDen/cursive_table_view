@@ -516,7 +516,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     /// newly inserted item.
     pub fn insert_item(&mut self, item: T) {
         self.items.push(item);
-        self.rows_to_items.push(self.items.len());
+        self.rows_to_items.push(self.items.len() - 1);
 
         self.scrollbase
             .set_heights(self.last_size.y.saturating_sub(2), self.rows_to_items.len());
@@ -974,4 +974,86 @@ impl<H: Copy + Clone + 'static> TableColumn<H> {
 
         printer.print((0, 0), value.as_str());
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Copy, Clone, PartialEq, Eq, Hash)]
+    enum SimpleColumn {
+        Name,
+    }
+
+    #[allow(dead_code)]
+    impl SimpleColumn {
+        fn as_str(&self) -> &str {
+            match *self {
+                SimpleColumn::Name => "Name",
+            }
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    struct SimpleItem {
+        name: String,
+    }
+
+    impl TableViewItem<SimpleColumn> for SimpleItem {
+        fn to_column(&self, column: SimpleColumn) -> String {
+            match column {
+                SimpleColumn::Name => self.name.to_string(),
+            }
+        }
+
+        fn cmp(&self, other: &Self, column: SimpleColumn) -> Ordering
+        where
+            Self: Sized,
+        {
+            match column {
+                SimpleColumn::Name => self.name.cmp(&other.name),
+            }
+        }
+    }
+
+    fn setup_test_table() -> TableView<SimpleItem, SimpleColumn> {
+        TableView::<SimpleItem, SimpleColumn>::new()
+            .column(SimpleColumn::Name, "Name", |c| c.width_percent(20))
+    }
+
+    #[test]
+    fn should_insert_into_existing_table() {
+        let mut simple_table = setup_test_table();
+
+        let mut simple_items = Vec::new();
+
+        for i in 1..=10 {
+            simple_items.push(SimpleItem {
+                name: format!("{} - Name", i),
+            });
+        }
+
+        // Insert First Batch of Items
+        simple_table.set_items(simple_items);
+
+        // Test for Additional item insertion
+        simple_table.insert_item(SimpleItem {
+            name: format!("{} Name", 11),
+        });
+
+        assert!(simple_table.len() == 11);
+    }
+
+    #[test]
+    fn should_insert_into_empty_table() {
+        let mut simple_table = setup_test_table();
+
+        // Test for First item insertion
+        simple_table.insert_item(SimpleItem {
+            name: format!("{} Name", 1),
+        });
+
+        assert!(simple_table.len() == 1);
+    }
+
 }

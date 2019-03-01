@@ -22,4 +22,3 @@ blt-backend = ["cursive/blt-backend"]
 
 [dev-dependencies]
 rand = "0.6"
-
