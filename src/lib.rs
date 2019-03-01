@@ -1017,9 +1017,13 @@ mod tests {
     }
 
     fn setup_test_table() -> TableView<SimpleItem, SimpleColumn> {
-        let mut simple_table =
-            TableView::<SimpleItem, SimpleColumn>::new()
-                .column(SimpleColumn::Name, "Name", |c| c.width_percent(20));
+        TableView::<SimpleItem, SimpleColumn>::new()
+            .column(SimpleColumn::Name, "Name", |c| c.width_percent(20))
+    }
+
+    #[test]
+    fn should_insert_into_existing_table() {
+        let mut simple_table = setup_test_table();
 
         let mut simple_items = Vec::new();
 
@@ -1032,13 +1036,6 @@ mod tests {
         // Insert First Batch of Items
         simple_table.set_items(simple_items);
 
-        simple_table
-    }
-
-    #[test]
-    fn should_insert_into_existing_collection() {
-        let mut simple_table = setup_test_table();
-
         // Test for Additional item insertion
         simple_table.insert_item(SimpleItem {
             name: format!("{} Name", 11),
@@ -1046,4 +1043,17 @@ mod tests {
 
         assert!(simple_table.len() == 11);
     }
+
+    #[test]
+    fn should_insert_into_empty_table() {
+        let mut simple_table = setup_test_table();
+
+        // Test for First item insertion
+        simple_table.insert_item(SimpleItem {
+            name: format!("{} Name", 1),
+        });
+
+        assert!(simple_table.len() == 1);
+    }
+
 }
