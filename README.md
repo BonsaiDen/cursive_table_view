@@ -34,7 +34,7 @@ the identical features to your `cursive_table_view` dependency:
 
 ```toml
 [dependencies.cursive]
-version = "0.10"
+version = "0.11"
 default-features = false
 features = ["blt-backend"]
 
