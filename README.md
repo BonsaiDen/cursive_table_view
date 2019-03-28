@@ -18,7 +18,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-cursive_table_view = "0.7"
+cursive_table_view = "0.8"
 ```
 
 and this to your crate root:
@@ -39,7 +39,7 @@ default-features = false
 features = ["blt-backend"]
 
 [dependencies.cursive_table_view]
-version = "0.7"
+version = "0.8"
 default-features = false
 features = ["blt-backend"]
 ```
