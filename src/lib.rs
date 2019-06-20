@@ -49,12 +49,12 @@ where
 /// It takes the column and the ordering as input.
 ///
 /// This is a private type to help readability.
-type OnSortCallback<H> = Rc<Fn(&mut Cursive, H, Ordering)>;
+type OnSortCallback<H> = Rc<dyn Fn(&mut Cursive, H, Ordering)>;
 
 /// Callback taking as argument the row and the index of an element.
 ///
 /// This is a private type to help readability.
-type IndexCallback = Rc<Fn(&mut Cursive, usize, usize)>;
+type IndexCallback = Rc<dyn Fn(&mut Cursive, usize, usize)>;
 
 /// View to select an item among a list, supporting multiple columns for sorting.
 ///
