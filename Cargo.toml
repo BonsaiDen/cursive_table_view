@@ -1,6 +1,6 @@
 [package]
 name = "cursive_table_view"
-version = "0.9.0"
+version = "0.10.0"
 authors = ["Ivo Wetzel <ivo.wetzel@googlemail.com>"]
 description = "A basic table view implementation for cursive."
 repository = "https://github.com/BonsaiDen/cursive_table_view.git"
@@ -10,8 +10,8 @@ categories = ["command-line-interface", "gui"]
 license = "MIT/Apache-2.0"
 
 [dependencies]
-cursive = { version = "0.11", default-features = false }
+cursive = { version = "0.12", default-features = false }
 
 [dev-dependencies]
-cursive = "0.11"
+cursive = "0.12"
 rand = "0.6"
