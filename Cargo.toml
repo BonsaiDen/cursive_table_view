@@ -14,4 +14,4 @@ cursive = { version = "0.13", default-features = false }
 
 [dev-dependencies]
 cursive = "0.13"
-rand = "0.6"
+rand = "0.7"
