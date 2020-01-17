@@ -101,7 +101,7 @@ fn main() {
 
     table.set_on_submit(|siv: &mut Cursive, row: usize, index: usize| {
         let value = siv
-            .call_on_id("table", move |table: &mut TableView<Foo, BasicColumn>| {
+            .call_on_name("table", move |table: &mut TableView<Foo, BasicColumn>| {
                 format!("{:?}", table.borrow_item(index).unwrap())
             })
             .unwrap();
@@ -110,7 +110,7 @@ fn main() {
             Dialog::around(TextView::new(value))
                 .title(format!("Removing row # {}", row))
                 .button("Close", move |s| {
-                    s.call_on_id("table", |table: &mut TableView<Foo, BasicColumn>| {
+                    s.call_on_name("table", |table: &mut TableView<Foo, BasicColumn>| {
                         table.remove_item(index);
                     });
                     s.pop_layer();
@@ -118,7 +118,7 @@ fn main() {
         );
     });
 
-    siv.add_layer(Dialog::around(table.with_id("table").min_size((50, 20))).title("Table View"));
+    siv.add_layer(Dialog::around(table.with_name("table").min_size((50, 20))).title("Table View"));
 
     siv.run();
 }

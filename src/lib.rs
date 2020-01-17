@@ -1055,5 +1055,4 @@ mod tests {
 
         assert!(simple_table.len() == 1);
     }
-
 }

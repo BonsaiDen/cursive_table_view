@@ -13,7 +13,7 @@ use std::cmp::Ordering;
 use cursive::align::HAlign;
 use cursive::direction::Orientation;
 use cursive::traits::*;
-use cursive::views::{BoxView, Dialog, DummyView, LinearLayout};
+use cursive::views::{Dialog, DummyView, LinearLayout, ResizedView};
 use cursive::Cursive;
 use rand::Rng;
 
@@ -61,7 +61,7 @@ fn main() {
 
     let mut layout = LinearLayout::new(Orientation::Horizontal);
     layout.add_child(create_table().min_size((32, 20)));
-    layout.add_child(BoxView::with_fixed_size((4, 0), DummyView));
+    layout.add_child(ResizedView::with_fixed_size((4, 0), DummyView));
     layout.add_child(create_table().min_size((32, 20)));
 
     siv.add_layer(Dialog::around(layout).title("Table View Demo"));
