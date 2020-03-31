@@ -115,6 +115,7 @@ type IndexCallback = Rc<dyn Fn(&mut Cursive, usize, usize)>;
 /// ```
 pub struct TableView<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> {
     enabled: bool,
+    events_enabled: bool,
     scrollbase: ScrollBase,
     last_size: Vec2,
 
@@ -149,6 +150,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     pub fn new() -> Self {
         Self {
             enabled: true,
+            events_enabled: true,
             scrollbase: ScrollBase::new(),
             last_size: Vec2::new(0, 0),
 
@@ -263,6 +265,26 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     /// Returns `true` if this view is enabled.
     pub fn is_enabled(&self) -> bool {
         self.enabled
+    }
+
+    /// Disables this view's event handling.
+    pub fn disable_events(&mut self) {
+        self.events_enabled = false;
+    }
+
+    /// Re-enables this view's event handling.
+    pub fn enable_events(&mut self) {
+        self.events_enabled = true;
+    }
+
+    /// Enable or disable this view's event handling.
+    pub fn set_events_enabled(&mut self, events_enabled: bool) {
+        self.events_enabled = events_enabled;
+    }
+
+    /// Returns `true` if this view handles events.
+    pub fn is_events_enabled(&self) -> bool {
+        self.events_enabled
     }
 
     /// Sets a callback to be used when a selected column is sorted by
@@ -778,7 +800,7 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View
     }
 
     fn on_event(&mut self, event: Event) -> EventResult {
-        if !self.enabled {
+        if !self.enabled || !self.events_enabled {
             return EventResult::Ignored;
         }
 
@@ -1054,5 +1076,14 @@ mod tests {
         });
 
         assert!(simple_table.len() == 1);
+    }
+
+    #[test]
+    fn should_disable_events() {
+        let mut simple_table = setup_test_table();
+        assert!(simple_table.is_events_enabled());
+
+        simple_table.disable_events();
+        assert!(!simple_table.is_events_enabled());
     }
 }
