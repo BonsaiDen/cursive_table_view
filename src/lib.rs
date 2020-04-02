@@ -684,7 +684,7 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View
 {
     fn draw(&self, printer: &Printer) {
         self.draw_columns(printer, "╷ ", |printer, column| {
-            let color = if column.order != Ordering::Equal || column.selected {
+            let color = if self.enabled && (column.order != Ordering::Equal || column.selected) {
                 if self.column_select && column.selected && self.enabled && printer.focused {
                     theme::ColorStyle::highlight()
                 } else {
@@ -709,7 +709,7 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View
 
         let printer = &printer.offset((0, 2)).focused(true);
         self.scrollbase.draw(printer, |printer, i| {
-            let color = if i == self.focus {
+            let color = if i == self.focus && self.enabled {
                 if !self.column_select && self.enabled && printer.focused {
                     theme::ColorStyle::highlight()
                 } else {
