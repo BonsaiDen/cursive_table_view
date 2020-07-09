@@ -10,8 +10,8 @@ categories = ["command-line-interface", "gui"]
 license = "MIT/Apache-2.0"
 
 [dependencies]
-cursive = { version = "0.14", default-features = false }
+cursive = { version = "0.15", default-features = false }
 
 [dev-dependencies]
-cursive = "0.14"
+cursive = "0.15"
 rand = "0.7"
