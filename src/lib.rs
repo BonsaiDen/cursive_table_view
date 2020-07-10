@@ -455,7 +455,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
 
     /// Returns a immmutable reference to the item at the specified index
     /// within the underlying storage vector.
-    pub fn borrow_item(&mut self, index: usize) -> Option<&T> {
+    pub fn borrow_item(&self, index: usize) -> Option<&T> {
         self.items.get(index)
     }
 
