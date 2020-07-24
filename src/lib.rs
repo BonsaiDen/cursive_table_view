@@ -725,6 +725,11 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View
                 });
             }
         });
+
+        // Extend the vertical bars to the end of the view
+        for y in self.scrollbase.content_height..printer.size.y {
+            self.draw_columns(&printer.offset((0, y)), "┆ ", |_, _| ());
+        }
     }
 
     fn layout(&mut self, size: Vec2) {
