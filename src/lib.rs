@@ -10,7 +10,7 @@
 )]
 
 // Crate Dependencies ---------------------------------------------------------
-extern crate cursive;
+extern crate cursive_core as cursive;
 
 // STD Dependencies -----------------------------------------------------------
 use std::cmp::{self, Ordering};
@@ -270,7 +270,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     ///
     /// # Example
     ///
-    /// ```norun
+    /// ```ignore
     /// table.set_on_sort(|siv: &mut Cursive, column: BasicColumn, order: Ordering| {
     ///
     /// });
@@ -289,7 +289,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     ///
     /// # Example
     ///
-    /// ```norun
+    /// ```ignore
     /// table.on_sort(|siv: &mut Cursive, column: BasicColumn, order: Ordering| {
     ///
     /// });
@@ -309,7 +309,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     ///
     /// # Example
     ///
-    /// ```norun
+    /// ```ignore
     /// table.set_on_submit(|siv: &mut Cursive, row: usize, index: usize| {
     ///
     /// });
@@ -331,7 +331,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     ///
     /// # Example
     ///
-    /// ```norun
+    /// ```ignore
     /// table.on_submit(|siv: &mut Cursive, row: usize, index: usize| {
     ///
     /// });
@@ -350,7 +350,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     ///
     /// # Example
     ///
-    /// ```norun
+    /// ```ignore
     /// table.set_on_select(|siv: &mut Cursive, row: usize, index: usize| {
     ///
     /// });
@@ -371,7 +371,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     ///
     /// # Example
     ///
-    /// ```norun
+    /// ```ignore
     /// table.on_select(|siv: &mut Cursive, row: usize, index: usize| {
     ///
     /// });

@@ -14,7 +14,6 @@ use cursive::align::HAlign;
 use cursive::direction::Orientation;
 use cursive::traits::*;
 use cursive::views::{Dialog, DummyView, LinearLayout, ResizedView};
-use cursive::Cursive;
 use rand::Rng;
 
 // Modules --------------------------------------------------------------------
@@ -57,7 +56,7 @@ impl TableViewItem<BasicColumn> for Foo {
 }
 
 fn main() {
-    let mut siv = Cursive::default();
+    let mut siv = cursive::default();
 
     let mut layout = LinearLayout::new(Orientation::Horizontal);
     layout.add_child(create_table().min_size((32, 20)));

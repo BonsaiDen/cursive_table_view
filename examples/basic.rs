@@ -68,7 +68,7 @@ impl TableViewItem<BasicColumn> for Foo {
 fn main() {
     let mut rng = rand::thread_rng();
 
-    let mut siv = Cursive::default();
+    let mut siv = cursive::default();
     let mut table = TableView::<Foo, BasicColumn>::new()
         .column(BasicColumn::Name, "Name", |c| c.width_percent(20))
         .column(BasicColumn::Count, "Count", |c| c.align(HAlign::Center))
