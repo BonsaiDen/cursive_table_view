@@ -177,20 +177,70 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
         title: S,
         callback: C,
     ) -> Self {
-        self.column_indicies.insert(column, self.columns.len());
+        self.add_column(column, title, callback);
+        self
+    }
+
+    /// Adds a column for the specified table colum from type `H` along with
+    /// a title for its visual display.
+    ///
+    /// The provided callback can be used to further configure the
+    /// created [`TableColumn`](struct.TableColumn.html).
+    pub fn add_column<S: Into<String>, C: FnOnce(TableColumn<H>) -> TableColumn<H>>(
+        &mut self,
+        column: H,
+        title: S,
+        callback: C,
+    ) {
+        self.insert_column(self.columns.len(), column, title, callback);
+    }
+
+    /// Remove a column.
+    pub fn remove_column(&mut self, i: usize) {
+        // Update the existing indices
+        for column in &self.columns[i + 1..] {
+            *self.column_indicies.get_mut(&column.column).unwrap() -= 1;
+        }
+
+        let column = self.columns.remove(i);
+        self.column_indicies.remove(&column.column);
+    }
+
+    /// Adds a column for the specified table colum from type `H` along with
+    /// a title for its visual display.
+    ///
+    /// The provided callback can be used to further configure the
+    /// created [`TableColumn`](struct.TableColumn.html).
+    pub fn insert_column<S: Into<String>, C: FnOnce(TableColumn<H>) -> TableColumn<H>>(
+        &mut self,
+        i: usize,
+        column: H,
+        title: S,
+        callback: C,
+    ) {
+        // Update all existing indices
+        for column in &self.columns[i..] {
+            *self.column_indicies.get_mut(&column.column).unwrap() += 1;
+        }
+
+        self.column_indicies.insert(column, i);
         self.columns
-            .push(callback(TableColumn::new(column, title.into())));
+            .insert(i, callback(TableColumn::new(column, title.into())));
 
         // Make the first colum the default one
         if self.columns.len() == 1 {
-            self.default_column(column)
-        } else {
-            self
+            self.set_default_column(column);
         }
     }
 
     /// Sets the initially active column of the table.
     pub fn default_column(mut self, column: H) -> Self {
+        self.set_default_column(column);
+        self
+    }
+
+    /// Sets the initially active column of the table.
+    pub fn set_default_column(&mut self, column: H) {
         if self.column_indicies.contains_key(&column) {
             for c in &mut self.columns {
                 c.selected = c.column == column;
@@ -201,7 +251,6 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
                 }
             }
         }
-        self
     }
 
     /// Sorts the table using the specified table `column` and the passed
