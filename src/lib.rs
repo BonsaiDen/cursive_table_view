@@ -136,7 +136,11 @@ pub struct TableView<T, H> {
 
 cursive::impl_scroller!(TableView < T, H > ::scroll_core);
 
-impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> Default for TableView<T, H> {
+impl<T, H> Default for TableView<T, H>
+where
+    T: TableViewItem<H> + PartialEq,
+    H: Eq + Hash + Copy + Clone + 'static,
+{
     /// Creates a new empty `TableView` without any columns.
     ///
     /// See [`TableView::new()`].
@@ -145,7 +149,49 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> Default for Tab
     }
 }
 
-impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H> {
+impl<T, H> TableView<T, H>
+where
+    T: TableViewItem<H> + PartialEq,
+    H: Eq + Hash + Copy + Clone + 'static,
+{
+    /// Sets the contained items of the table.
+    ///
+    /// The currently active sort order is preserved and will be applied to all
+    /// items.
+    ///
+    /// Compared to `set_items`, the current selection will be preserved.
+    /// (But this is only available for `T: PartialEq`.)
+    pub fn set_items_stable(&mut self, items: Vec<T>) {
+        // Preserve selection
+        let new_location = self
+            .item()
+            .and_then(|old_item| {
+                let old_item = &self.items[old_item];
+                items.iter().position(|new| new == old_item)
+            })
+            .unwrap_or(0);
+
+        self.items = items;
+        self.rows_to_items = Vec::with_capacity(self.items.len());
+
+        for i in 0..self.items.len() {
+            self.rows_to_items.push(i);
+        }
+
+        if let Some((column, order)) = self.order() {
+            self.sort_by(column, order);
+        }
+
+        self.set_selected_item(new_location);
+        self.needs_relayout = true;
+    }
+}
+
+impl<T, H> TableView<T, H>
+where
+    T: TableViewItem<H>,
+    H: Eq + Hash + Copy + Clone + 'static,
+{
     /// Creates a new empty `TableView` without any columns.
     ///
     /// A TableView should be accompanied by a enum of type `H` representing
@@ -494,7 +540,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             self.sort_by(column, order);
         }
 
-        self.set_selected_row(0);
+        self.set_selected_item(0);
         self.needs_relayout = true;
     }
 
@@ -520,14 +566,14 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     }
 
     /// Returns a immmutable reference to the items contained within the table.
-    pub fn borrow_items(&mut self) -> &Vec<T> {
+    pub fn borrow_items(&mut self) -> &[T] {
         &self.items
     }
 
     /// Returns a mutable reference to the items contained within the table.
     ///
     /// Can be used to modify the items in place.
-    pub fn borrow_items_mut(&mut self) -> &mut Vec<T> {
+    pub fn borrow_items_mut(&mut self) -> &mut [T] {
         self.needs_relayout = true;
         &mut self.items
     }
@@ -535,11 +581,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     /// Returns the index of the currently selected item within the underlying
     /// storage vector.
     pub fn item(&self) -> Option<usize> {
-        if self.items.is_empty() {
-            None
-        } else {
-            Some(self.rows_to_items[self.focus])
-        }
+        self.rows_to_items.get(self.focus).copied()
     }
 
     /// Selects the item at the specified index within the underlying storage
@@ -618,7 +660,11 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     }
 }
 
-impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H> {
+impl<T, H> TableView<T, H>
+where
+    T: TableViewItem<H>,
+    H: Eq + Hash + Copy + Clone + 'static,
+{
     fn draw_columns<C: Fn(&Printer, &TableColumn<H>)>(
         &self,
         printer: &Printer,
@@ -929,8 +975,10 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     }
 }
 
-impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View
-    for TableView<T, H>
+impl<T, H> View for TableView<T, H>
+where
+    T: TableViewItem<H> + 'static,
+    H: Eq + Hash + Copy + Clone + 'static,
 {
     fn draw(&self, printer: &Printer) {
         self.draw_columns(printer, "╷ ", |printer, column| {
