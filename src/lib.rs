@@ -19,14 +19,15 @@ use std::hash::Hash;
 use std::rc::Rc;
 
 // External Dependencies ------------------------------------------------------
-use cursive::align::HAlign;
-use cursive::direction::Direction;
-use cursive::event::{Callback, Event, EventResult, Key};
-use cursive::theme;
-use cursive::vec::Vec2;
-use cursive::view::{ScrollBase, View};
-use cursive::With;
-use cursive::{Cursive, Printer};
+use cursive::{
+    align::HAlign,
+    direction::Direction,
+    event::{Callback, Event, EventResult, Key, MouseButton, MouseEvent},
+    theme,
+    vec::Vec2,
+    view::{scroll, View},
+    Cursive, Printer, Rect, With,
+};
 
 /// A trait for displaying and sorting items inside a
 /// [`TableView`](struct.TableView.html).
@@ -113,10 +114,10 @@ type IndexCallback = Rc<dyn Fn(&mut Cursive, usize, usize)>;
 ///                      .default_column(BasicColumn::Name);
 /// # }
 /// ```
-pub struct TableView<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> {
+pub struct TableView<T, H> {
     enabled: bool,
-    scrollbase: ScrollBase,
-    last_size: Vec2,
+    scroll_core: scroll::Core,
+    needs_relayout: bool,
 
     column_select: bool,
     columns: Vec<TableColumn<H>>,
@@ -132,6 +133,9 @@ pub struct TableView<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static>
     on_submit: Option<IndexCallback>,
     on_select: Option<IndexCallback>,
 }
+
+cursive::impl_scroller!(TableView < T, H > ::scroll_core);
+
 impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> Default for TableView<T, H> {
     /// Creates a new empty `TableView` without any columns.
     ///
@@ -149,8 +153,8 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     pub fn new() -> Self {
         Self {
             enabled: true,
-            scrollbase: ScrollBase::new(),
-            last_size: Vec2::new(0, 0),
+            scroll_core: scroll::Core::new(),
+            needs_relayout: true,
 
             column_select: false,
             columns: Vec::new(),
@@ -204,6 +208,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
 
         let column = self.columns.remove(i);
         self.column_indicies.remove(&column.column);
+        self.needs_relayout = true;
     }
 
     /// Adds a column for the specified table colum from type `H` along with
@@ -231,6 +236,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
         if self.columns.len() == 1 {
             self.set_default_column(column);
         }
+        self.needs_relayout = true;
     }
 
     /// Sets the initially active column of the table.
@@ -437,6 +443,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
         self.items.clear();
         self.rows_to_items.clear();
         self.focus = 0;
+        self.needs_relayout = true;
     }
 
     /// Returns the number of items in this table.
@@ -461,7 +468,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     /// Selects the row at the specified index.
     pub fn set_selected_row(&mut self, row_index: usize) {
         self.focus = row_index;
-        self.scrollbase.scroll_to(row_index);
+        self.scroll_core.scroll_to_y(row_index);
     }
 
     /// Selects the row at the specified index.
@@ -487,10 +494,8 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             self.sort_by(column, order);
         }
 
-        self.scrollbase
-            .set_heights(self.last_size.y.saturating_sub(2), self.rows_to_items.len());
-
         self.set_selected_row(0);
+        self.needs_relayout = true;
     }
 
     /// Sets the contained items of the table.
@@ -523,6 +528,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     ///
     /// Can be used to modify the items in place.
     pub fn borrow_items_mut(&mut self) -> &mut Vec<T> {
+        self.needs_relayout = true;
         &mut self.items
     }
 
@@ -544,7 +550,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
             for (row, item) in self.rows_to_items.iter().enumerate() {
                 if *item == item_index {
                     self.focus = row;
-                    self.scrollbase.scroll_to(row);
+                    self.scroll_core.scroll_to_y(row);
                     break;
                 }
             }
@@ -565,14 +571,13 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     /// newly inserted item.
     pub fn insert_item(&mut self, item: T) {
         self.items.push(item);
+        // Here we know self.items.len() > 0
         self.rows_to_items.push(self.items.len() - 1);
-
-        self.scrollbase
-            .set_heights(self.last_size.y.saturating_sub(2), self.rows_to_items.len());
 
         if let Some((column, order)) = self.order() {
             self.sort_by(column, order);
         }
+        self.needs_relayout = true;
     }
 
     /// Removes the item at the specified index within the underlying storage
@@ -595,10 +600,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
                     *ref_index -= 1;
                 }
             }
-
-            // Update scroll height to prevent out of index drawing
-            self.scrollbase
-                .set_heights(self.last_size.y.saturating_sub(2), self.rows_to_items.len());
+            self.needs_relayout = true;
 
             // Remove actual item from the underlying storage
             Some(self.items.remove(item_index))
@@ -609,10 +611,9 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
 
     /// Removes all items from the underlying storage and returns them.
     pub fn take_items(&mut self) -> Vec<T> {
-        self.scrollbase
-            .set_heights(self.last_size.y.saturating_sub(2), 0);
         self.set_selected_row(0);
         self.rows_to_items.clear();
+        self.needs_relayout = true;
         self.items.drain(0..).collect()
     }
 }
@@ -631,7 +632,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
 
             callback(printer, column);
 
-            if index < column_count - 1 {
+            if 1 + index < column_count {
                 printer.print((column.width + 1, 0), sep);
             }
 
@@ -666,12 +667,22 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
         });
     }
 
+    fn on_focus_change(&self) -> EventResult {
+        let row = self.row().unwrap();
+        let index = self.item().unwrap();
+        EventResult::Consumed(
+            self.on_select
+                .clone()
+                .map(|cb| Callback::from_fn(move |s| cb(s, row, index))),
+        )
+    }
+
     fn focus_up(&mut self, n: usize) {
         self.focus -= cmp::min(self.focus, n);
     }
 
     fn focus_down(&mut self, n: usize) {
-        self.focus = cmp::min(self.focus + n, self.items.len() - 1);
+        self.focus = cmp::min(self.focus + n, self.items.len().saturating_sub(1));
     }
 
     fn active_column(&self) -> usize {
@@ -687,7 +698,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
 
     fn column_next(&mut self) -> bool {
         let column = self.active_column();
-        if column < self.columns.len() - 1 {
+        if 1 + column < self.columns.len() {
             self.columns[column].selected = false;
             self.columns[column + 1].selected = true;
             true
@@ -707,7 +718,7 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
         }
     }
 
-    fn column_select(&mut self) {
+    fn column_select(&mut self) -> EventResult {
         let next = self.active_column();
         let column = self.columns[next].column;
         let current = self
@@ -725,39 +736,33 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
         };
 
         self.sort_by(column, order);
+
+        if self.on_sort.is_some() {
+            let c = &self.columns[self.active_column()];
+            let column = c.column;
+            let order = c.order;
+
+            let cb = self.on_sort.clone().unwrap();
+            EventResult::with_cb(move |s| cb(s, column, order))
+        } else {
+            EventResult::Consumed(None)
+        }
     }
-}
 
-impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View
-    for TableView<T, H>
-{
-    fn draw(&self, printer: &Printer) {
-        self.draw_columns(printer, "╷ ", |printer, column| {
-            let color = if self.enabled && (column.order != Ordering::Equal || column.selected) {
-                if self.column_select && column.selected && self.enabled && printer.focused {
-                    theme::ColorStyle::highlight()
-                } else {
-                    theme::ColorStyle::highlight_inactive()
-                }
-            } else {
-                theme::ColorStyle::primary()
-            };
+    fn column_for_x(&self, mut x: usize) -> Option<usize> {
+        for (i, col) in self.columns.iter().enumerate() {
+            if x < col.width {
+                return Some(i);
+            }
+            x = x.saturating_sub(col.width + 1);
+        }
 
-            printer.with_color(color, |printer| {
-                column.draw_header(printer);
-            });
-        });
+        None
+    }
 
-        self.draw_columns(
-            &printer.offset((0, 1)).focused(true),
-            "┴─",
-            |printer, column| {
-                printer.print_hline((0, 0), column.width + 1, "─");
-            },
-        );
-
-        let printer = &printer.offset((0, 2)).focused(true);
-        self.scrollbase.draw(printer, |printer, i| {
+    fn draw_content(&self, printer: &Printer) {
+        for i in 0..self.rows_to_items.len() {
+            let printer = printer.offset((0, i));
             let color = if i == self.focus && self.enabled {
                 if !self.column_select && self.enabled && printer.focused {
                     theme::ColorStyle::highlight()
@@ -773,20 +778,10 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View
                     self.draw_item(printer, i);
                 });
             }
-        });
-
-        // Extend the vertical bars to the end of the view
-        for y in self.scrollbase.content_height..printer.size.y {
-            self.draw_columns(&printer.offset((0, y)), "┆ ", |_, _| ());
         }
     }
 
-    fn layout(&mut self, size: Vec2) {
-        if size == self.last_size {
-            return;
-        }
-
-        let item_count = self.items.len();
+    fn layout_content(&mut self, size: Vec2) {
         let column_count = self.columns.len();
 
         // Split up all columns into sized / unsized groups
@@ -796,12 +791,7 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View
             .partition(|c| c.requested_width.is_some());
 
         // Subtract one for the seperators between our columns (that's column_count - 1)
-        let mut available_width = size.x.saturating_sub(column_count.saturating_sub(1) * 3);
-
-        // Reduce the with in case we are displaying a scrollbar
-        if size.y.saturating_sub(1) < item_count {
-            available_width = available_width.saturating_sub(2);
-        }
+        let available_width = size.x.saturating_sub(column_count.saturating_sub(1) * 3);
 
         // Calculate widths for all requested columns
         let mut remaining_width = available_width;
@@ -822,20 +812,14 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View
             column.width = (remaining_width as f32 / remaining_columns as f32).floor() as usize;
         }
 
-        self.scrollbase
-            .set_heights(size.y.saturating_sub(2), item_count);
-        self.last_size = size;
+        self.needs_relayout = false;
     }
 
-    fn take_focus(&mut self, _: Direction) -> bool {
-        self.enabled
+    fn content_required_size(&mut self, req: Vec2) -> Vec2 {
+        Vec2::new(req.x, self.rows_to_items.len())
     }
 
-    fn on_event(&mut self, event: Event) -> EventResult {
-        if !self.enabled {
-            return EventResult::Ignored;
-        }
-
+    fn on_inner_event(&mut self, event: Event) -> EventResult {
         let last_focus = self.focus;
         match event {
             Event::Key(Key::Right) => {
@@ -884,56 +868,160 @@ impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View
             }
             Event::Key(Key::End) => {
                 self.column_cancel();
-                self.focus = self.items.len() - 1;
+                self.focus = self.items.len().saturating_sub(1);
             }
             Event::Key(Key::Enter) => {
                 if self.column_select {
-                    self.column_select();
-
-                    if self.on_sort.is_some() {
-                        let c = &self.columns[self.active_column()];
-                        let column = c.column;
-                        let order = c.order;
-
-                        let cb = self.on_sort.clone().unwrap();
-                        return EventResult::Consumed(Some(Callback::from_fn(move |s| {
-                            cb(s, column, order)
-                        })));
-                    }
+                    return self.column_select();
                 } else if !self.is_empty() && self.on_submit.is_some() {
-                    let cb = self.on_submit.clone().unwrap();
-                    let row = self.row().unwrap();
-                    let index = self.item().unwrap();
-                    return EventResult::Consumed(Some(Callback::from_fn(move |s| {
-                        cb(s, row, index)
-                    })));
+                    return self.on_submit_event();
                 }
             }
+            Event::Mouse {
+                position,
+                offset,
+                event: MouseEvent::Press(MouseButton::Left),
+            } if !self.is_empty()
+                && position
+                    .checked_sub(offset)
+                    .map_or(false, |p| p.y == self.focus) =>
+            {
+                self.column_cancel();
+                return self.on_submit_event();
+            }
+            Event::Mouse {
+                position,
+                offset,
+                event: MouseEvent::Press(_),
+            } if !self.is_empty() => match position.checked_sub(offset) {
+                Some(position) if position.y < self.rows_to_items.len() => {
+                    self.column_cancel();
+                    self.focus = position.y;
+                }
+                _ => return EventResult::Ignored,
+            },
             _ => return EventResult::Ignored,
         }
 
         let focus = self.focus;
-        self.scrollbase.scroll_to(focus);
 
         if self.column_select {
             EventResult::Consumed(None)
         } else if !self.is_empty() && last_focus != focus {
-            let row = self.row().unwrap();
-            let index = self.item().unwrap();
-            EventResult::Consumed(
-                self.on_select
-                    .clone()
-                    .map(|cb| Callback::from_fn(move |s| cb(s, row, index))),
-            )
+            self.on_focus_change()
         } else {
             EventResult::Ignored
         }
+    }
+
+    fn inner_important_area(&self, size: Vec2) -> Rect {
+        Rect::from_size((0, self.focus), (size.x, 1))
+    }
+
+    fn on_submit_event(&mut self) -> EventResult {
+        if let Some(ref cb) = &self.on_submit {
+            let cb = Rc::clone(cb);
+            let row = self.row().unwrap();
+            let index = self.item().unwrap();
+            return EventResult::Consumed(Some(Callback::from_fn(move |s| cb(s, row, index))));
+        }
+        EventResult::Ignored
+    }
+}
+
+impl<T: TableViewItem<H> + 'static, H: Eq + Hash + Copy + Clone + 'static> View
+    for TableView<T, H>
+{
+    fn draw(&self, printer: &Printer) {
+        self.draw_columns(printer, "╷ ", |printer, column| {
+            let color = if self.enabled && (column.order != Ordering::Equal || column.selected) {
+                if self.column_select && column.selected && self.enabled && printer.focused {
+                    theme::ColorStyle::highlight()
+                } else {
+                    theme::ColorStyle::highlight_inactive()
+                }
+            } else {
+                theme::ColorStyle::primary()
+            };
+
+            printer.with_color(color, |printer| {
+                column.draw_header(printer);
+            });
+        });
+
+        self.draw_columns(
+            &printer.offset((0, 1)).focused(true),
+            "┴─",
+            |printer, column| {
+                printer.print_hline((0, 0), column.width + 1, "─");
+            },
+        );
+
+        // Extend the vertical bars to the end of the view
+        for y in 2..printer.size.y {
+            self.draw_columns(&printer.offset((0, y)), "┆ ", |_, _| ());
+        }
+
+        let printer = &printer.offset((0, 2)).focused(true);
+        scroll::draw(self, printer, Self::draw_content);
+    }
+
+    fn layout(&mut self, size: Vec2) {
+        scroll::layout(
+            self,
+            size.saturating_sub((0, 2)),
+            self.needs_relayout,
+            Self::layout_content,
+            Self::content_required_size,
+        );
+    }
+
+    fn take_focus(&mut self, _: Direction) -> bool {
+        self.enabled
+    }
+
+    fn on_event(&mut self, event: Event) -> EventResult {
+        if !self.enabled {
+            return EventResult::Ignored;
+        }
+
+        match event {
+            Event::Mouse {
+                position,
+                offset,
+                event: MouseEvent::Press(MouseButton::Left),
+            } if position.checked_sub(offset).map_or(false, |p| p.y == 0) => {
+                if let Some(position) = position.checked_sub(offset) {
+                    if let Some(col) = self.column_for_x(position.x) {
+                        if self.column_select && self.columns[col].selected {
+                            return self.column_select();
+                        } else {
+                            let active = self.active_column();
+                            self.columns[active].selected = false;
+                            self.columns[col].selected = true;
+                            self.column_select = true;
+                        }
+                    }
+                }
+                EventResult::Ignored
+            }
+            event => scroll::on_event(
+                self,
+                event.relativized((0, 2)),
+                Self::on_inner_event,
+                Self::inner_important_area,
+            ),
+        }
+    }
+
+    fn important_area(&self, size: Vec2) -> Rect {
+        self.inner_important_area(size.saturating_sub((0, 2))) + (0, 2)
     }
 }
 
 /// A type used for the construction of columns in a
 /// [`TableView`](struct.TableView.html).
-pub struct TableColumn<H: Copy + Clone + 'static> {
+pub struct TableColumn<H> {
     column: H,
     title: String,
     selected: bool,
