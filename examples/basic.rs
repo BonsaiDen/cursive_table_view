@@ -82,8 +82,8 @@ fn main() {
     for i in 0..50 {
         items.push(Foo {
             name: format!("Name {}", i),
-            count: rng.gen_range(0, 255),
-            rate: rng.gen_range(0, 255),
+            count: rng.gen_range(0..=255),
+            rate: rng.gen_range(0..=255),
         });
     }
 
