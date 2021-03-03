@@ -797,10 +797,11 @@ where
 
     fn column_for_x(&self, mut x: usize) -> Option<usize> {
         for (i, col) in self.columns.iter().enumerate() {
-            if x < col.width {
-                return Some(i);
-            }
-            x = x.saturating_sub(col.width + 1);
+            x = match x.checked_sub(col.width) {
+                None => return Some(i),
+                Some(x) if x < 3 => return None,
+                Some(x) => x - 3,
+            };
         }
 
         None
