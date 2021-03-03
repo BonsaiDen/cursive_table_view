@@ -171,19 +171,7 @@ where
             })
             .unwrap_or(0);
 
-        self.items = items;
-        self.rows_to_items = Vec::with_capacity(self.items.len());
-
-        for i in 0..self.items.len() {
-            self.rows_to_items.push(i);
-        }
-
-        if let Some((column, order)) = self.order() {
-            self.sort_by(column, order);
-        }
-
-        self.set_selected_item(new_location);
-        self.needs_relayout = true;
+        self.set_items_and_focus(items, new_location);
     }
 }
 
@@ -310,6 +298,7 @@ where
     pub fn sort_by(&mut self, column: H, order: Ordering) {
         if self.column_indicies.contains_key(&column) {
             for c in &mut self.columns {
+                // Move selection back to the sorted column.
                 c.selected = c.column == column;
                 if c.selected {
                     c.order = order;
@@ -529,6 +518,10 @@ where
     /// The currently active sort order is preserved and will be applied to all
     /// items.
     pub fn set_items(&mut self, items: Vec<T>) {
+        self.set_items_and_focus(items, 0);
+    }
+
+    fn set_items_and_focus(&mut self, items: Vec<T>, new_location: usize) {
         self.items = items;
         self.rows_to_items = Vec::with_capacity(self.items.len());
 
@@ -537,10 +530,17 @@ where
         }
 
         if let Some((column, order)) = self.order() {
+            // Preserve the selected column if possible.
+            let selected_column = self.columns.iter().find(|c| c.selected).map(|c| c.column);
             self.sort_by(column, order);
+            if let Some(column) = selected_column {
+                for c in &mut self.columns {
+                    c.selected = c.column == column;
+                }
+            }
         }
 
-        self.set_selected_item(0);
+        self.set_selected_item(new_location);
         self.needs_relayout = true;
     }
 
