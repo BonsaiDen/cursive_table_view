@@ -799,8 +799,7 @@ where
         for (i, col) in self.columns.iter().enumerate() {
             x = match x.checked_sub(col.width) {
                 None => return Some(i),
-                Some(x) if x < 3 => return None,
-                Some(x) => x - 3,
+                Some(x) => x.checked_sub(3)?,
             };
         }
 
