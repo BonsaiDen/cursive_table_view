@@ -483,6 +483,8 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
     /// The currently active sort order is preserved and will be applied to all
     /// items.
     pub fn set_items(&mut self, items: Vec<T>) {
+        let current_row_index = self.focus;
+        let current_column_index = self.active_column();
         self.items = items;
         self.rows_to_items = Vec::with_capacity(self.items.len());
 
@@ -493,8 +495,15 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
         if let Some((column, order)) = self.order() {
             self.sort_by(column, order);
         }
-
-        self.set_selected_row(0);
+        // Keep the old selected row, if that many rows are still present.
+        if self.items.len() >= current_row_index {
+            self.set_selected_row(current_row_index);
+        } else {
+            self.set_selected_row(0);
+        }
+        // Keep the old selected column.
+        self.set_active_column(current_column_index);
+        // Probably need a relayout.
         self.needs_relayout = true;
     }
 
@@ -687,6 +696,16 @@ impl<T: TableViewItem<H>, H: Eq + Hash + Copy + Clone + 'static> TableView<T, H>
 
     fn active_column(&self) -> usize {
         self.columns.iter().position(|c| c.selected).unwrap_or(0)
+    }
+
+    fn set_active_column(&mut self, idx: usize) {
+        for column in 0..self.columns.len() {
+            if column == idx {
+                self.columns[column].selected = true;
+            } else {
+                self.columns[column].selected = false;
+            }
+        }
     }
 
     fn column_cancel(&mut self) {
