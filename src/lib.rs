@@ -611,10 +611,27 @@ where
     ///
     /// The currently active sort order is preserved and will be applied to the
     /// newly inserted item.
+    ///
+    /// If no sort option is set, the item will be added to the end of the table.
     pub fn insert_item(&mut self, item: T) {
+        self.insert_item_at(self.items.len(), item);
+    }
+
+    /// Inserts a new item into the table.
+    ///
+    /// The currently active sort order is preserved and will be applied to the
+    /// newly inserted item.
+    ///
+    /// If no sort option is set, the item will be inserted at the given index.
+    ///
+    /// # Panics
+    ///
+    /// If `index > self.len()`.
+    pub fn insert_item_at(&mut self, index: usize, item: T) {
         self.items.push(item);
+
         // Here we know self.items.len() > 0
-        self.rows_to_items.push(self.items.len() - 1);
+        self.rows_to_items.insert(index, self.items.len() - 1);
 
         if let Some((column, order)) = self.order() {
             self.sort_by(column, order);
