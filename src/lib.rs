@@ -25,7 +25,7 @@ use cursive::{
     event::{Callback, Event, EventResult, Key, MouseButton, MouseEvent},
     theme,
     vec::Vec2,
-    view::{scroll, View},
+    view::{scroll, CannotFocus, View},
     Cursive, Printer, Rect, With,
 };
 
@@ -1024,8 +1024,8 @@ where
         );
     }
 
-    fn take_focus(&mut self, _: Direction) -> bool {
-        self.enabled
+    fn take_focus(&mut self, _: Direction) -> Result<EventResult, CannotFocus> {
+        self.enabled.then(EventResult::consumed).ok_or(CannotFocus)
     }
 
     fn on_event(&mut self, event: Event) -> EventResult {
