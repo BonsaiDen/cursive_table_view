@@ -13,10 +13,13 @@
 extern crate cursive_core as cursive;
 
 // STD Dependencies -----------------------------------------------------------
-use std::cmp::{self, Ordering};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
+use std::{
+    cmp::{self, Ordering},
+    collections::BTreeSet,
+};
 
 // External Dependencies ------------------------------------------------------
 use cursive::{
@@ -127,6 +130,8 @@ pub struct TableView<T, H> {
     items: Vec<T>,
     rows_to_items: Vec<usize>,
 
+    selected_rows: BTreeSet<usize>,
+
     on_sort: Option<OnSortCallback<H>>,
     // TODO Pass drawing offsets into the handlers so a popup menu
     // can be created easily?
@@ -197,7 +202,7 @@ where
             focus: 0,
             items: Vec::new(),
             rows_to_items: Vec::new(),
-
+            selected_rows: BTreeSet::new(),
             on_sort: None,
             on_submit: None,
             on_select: None,
@@ -826,7 +831,17 @@ where
     fn draw_content(&self, printer: &Printer) {
         for i in 0..self.rows_to_items.len() {
             let printer = printer.offset((0, i));
-            let color = if i == self.focus && self.enabled {
+            let color = if self.selected_rows.contains(&i) && i != self.focus && self.enabled {
+                theme::ColorStyle::new(
+                    theme::ColorType::Palette(theme::PaletteColor::TitleSecondary),
+                    theme::ColorType::Palette(theme::PaletteColor::View),
+                )
+            } else if self.selected_rows.contains(&i) && i == self.focus && self.enabled {
+                theme::ColorStyle::new(
+                    theme::ColorType::Palette(theme::PaletteColor::TitleSecondary),
+                    theme::ColorType::Palette(theme::PaletteColor::Highlight),
+                )
+            } else if i == self.focus && self.enabled {
                 if !self.column_select && self.enabled && printer.focused {
                     theme::ColorStyle::highlight()
                 } else {
@@ -885,6 +900,14 @@ where
     fn on_inner_event(&mut self, event: Event) -> EventResult {
         let last_focus = self.focus;
         match event {
+            Event::Key(Key::Ins) => {
+                if self.selected_rows.contains(&last_focus) {
+                    self.selected_rows.remove(&last_focus);
+                } else {
+                    self.selected_rows.insert(last_focus);
+                }
+                self.focus_down(1);
+            }
             Event::Key(Key::Right) => {
                 if self.column_select {
                     if !self.column_next() {
