@@ -13,10 +13,11 @@
 extern crate cursive_core as cursive;
 
 // STD Dependencies -----------------------------------------------------------
-use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
+use std::{borrow::BorrowMut, collections::HashMap};
 use std::{
+    cell::Cell,
     cmp::{self, Ordering},
     collections::BTreeSet,
 };
@@ -131,7 +132,7 @@ pub struct TableView<T, H> {
     rows_to_items: Vec<usize>,
 
     selected_rows: BTreeSet<usize>,
-
+    visible_rows: Cell<usize>,
     on_sort: Option<OnSortCallback<H>>,
     // TODO Pass drawing offsets into the handlers so a popup menu
     // can be created easily?
@@ -203,6 +204,7 @@ where
             items: Vec::new(),
             rows_to_items: Vec::new(),
             selected_rows: BTreeSet::new(),
+            visible_rows: Cell::new(0),
             on_sort: None,
             on_submit: None,
             on_select: None,
@@ -942,11 +944,11 @@ where
             }
             Event::Key(Key::PageUp) => {
                 self.column_cancel();
-                self.focus_up(10);
+                self.focus_up(self.visible_rows.get());
             }
             Event::Key(Key::PageDown) => {
                 self.column_cancel();
-                self.focus_down(10);
+                self.focus_down(self.visible_rows.get());
             }
             Event::Key(Key::Home) => {
                 self.column_cancel();
@@ -1052,6 +1054,7 @@ where
 
         let printer = &printer.offset((0, 2)).focused(true);
         scroll::draw(self, printer, Self::draw_content);
+        self.visible_rows.set(printer.size.y);
     }
 
     fn layout(&mut self, size: Vec2) {
