@@ -130,8 +130,6 @@ pub struct TableView<T, H> {
 
     focus: usize,
     items: Vec<T>,
-    rows_to_items: Vec<usize>,
-
     selected_rows: BTreeSet<usize>,
     last_focus_time: Instant,
     visible_rows: Cell<usize>,
@@ -211,7 +209,6 @@ where
 
             focus: 0,
             items: Vec::new(),
-            rows_to_items: Vec::new(),
             selected_rows: BTreeSet::new(),
             last_focus_time: Instant::now(),
             visible_rows: Cell::new(0),
@@ -493,7 +490,6 @@ where
     /// Removes all items from this view.
     pub fn clear(&mut self) {
         self.items.clear();
-        self.rows_to_items.clear();
         self.focus = 0;
         self.needs_relayout = true;
     }
@@ -540,11 +536,6 @@ where
 
     fn set_items_and_focus(&mut self, items: Vec<T>, new_location: usize) {
         self.items = items;
-        self.rows_to_items = Vec::with_capacity(self.items.len());
-
-        for i in 0..self.items.len() {
-            self.rows_to_items.push(i);
-        }
 
         if let Some((column, order)) = self.order() {
             // Preserve the selected column if possible.
@@ -598,10 +589,9 @@ where
     /// Returns the index of the currently selected item within the underlying
     /// storage vector.
     pub fn item(&self) -> Option<usize> {
-        self.rows_to_items.get(self.focus).copied()
+        Some(self.focus)
     }
     ///
-    ///++artie
     pub fn get_selected_item(&self) -> &T {
         let inx = match self.item() {
             Some(inx) => inx,
@@ -612,16 +602,8 @@ where
     /// Selects the item at the specified index within the underlying storage
     /// vector.
     pub fn set_selected_item(&mut self, item_index: usize) {
-        // TODO optimize the performance for very large item lists
-        if item_index < self.items.len() {
-            for (row, item) in self.rows_to_items.iter().enumerate() {
-                if *item == item_index {
-                    self.focus = row;
-                    self.scroll_core.scroll_to_y(row);
-                    break;
-                }
-            }
-        }
+        self.focus = item_index;
+        self.scroll_core.scroll_to_y(self.focus);
     }
 
     /// Selects the item at the specified index within the underlying storage
@@ -652,11 +634,9 @@ where
     /// # Panics
     ///
     /// If `index > self.len()`.
+    #[deprecated(note = "Don't use it. It is slow with current underlying storage container")]
     pub fn insert_item_at(&mut self, index: usize, item: T) {
-        self.items.push(item);
-
-        // Here we know self.items.len() > 0
-        self.rows_to_items.insert(index, self.items.len() - 1);
+        self.items.insert(index, item);
 
         if let Some((column, order)) = self.order() {
             self.sort_by(column, order);
@@ -669,21 +649,10 @@ where
     pub fn remove_item(&mut self, item_index: usize) -> Option<T> {
         if item_index < self.items.len() {
             // Move the selection if the currently selected item gets removed
-            if let Some(selected_index) = self.item() {
-                if selected_index == item_index {
-                    self.focus_up(1);
-                }
+            if self.focus == item_index {
+                self.focus_up(1);
             }
 
-            // Remove the sorted reference to the item
-            self.rows_to_items.retain(|i| *i != item_index);
-
-            // Adjust remaining references
-            for ref_index in &mut self.rows_to_items {
-                if *ref_index > item_index {
-                    *ref_index -= 1;
-                }
-            }
             self.needs_relayout = true;
 
             // Remove actual item from the underlying storage
@@ -696,7 +665,6 @@ where
     /// Removes all items from the underlying storage and returns them.
     pub fn take_items(&mut self) -> Vec<T> {
         self.set_selected_row(0);
-        self.rows_to_items.clear();
         self.needs_relayout = true;
         self.items.drain(0..).collect()
     }
@@ -732,15 +700,13 @@ where
         if !self.is_empty() {
             let old_item = self.item();
 
-            let mut rows_to_items = self.rows_to_items.clone();
-            rows_to_items.sort_by(|a, b| {
+            self.items.sort_by(|a, b| {
                 if order == Ordering::Less {
-                    self.items[*a].cmp(&self.items[*b], column)
+                    a.cmp(b, column)
                 } else {
-                    self.items[*b].cmp(&self.items[*a], column)
+                    b.cmp(a, column)
                 }
             });
-            self.rows_to_items = rows_to_items;
 
             if let Some(old_item) = old_item {
                 self.set_selected_item(old_item);
@@ -750,7 +716,7 @@ where
 
     fn draw_item(&self, printer: &Printer, i: usize) {
         self.draw_columns(printer, "┆ ", |printer, column| {
-            let value = self.items[self.rows_to_items[i]].to_column(column.column);
+            let value = self.items[i].to_column(column.column);
             column.draw_row(printer, value.as_str());
         });
     }
@@ -849,7 +815,7 @@ where
     }
 
     fn draw_content(&self, printer: &Printer) {
-        for i in 0..self.rows_to_items.len() {
+        for i in 0..self.items.len() {
             let printer = printer.offset((0, i));
             let color = if self.selected_rows.contains(&i) && i != self.focus && self.enabled {
                 theme::ColorStyle::new(
@@ -914,7 +880,7 @@ where
     }
 
     fn content_required_size(&mut self, req: Vec2) -> Vec2 {
-        Vec2::new(req.x, self.rows_to_items.len())
+        Vec2::new(req.x, self.items.len())
     }
 
     fn on_inner_event(&mut self, event: Event) -> EventResult {
@@ -1004,7 +970,7 @@ where
                 offset,
                 event: MouseEvent::Press(_),
             } if !self.is_empty() => match position.checked_sub(offset) {
-                Some(position) if position.y < self.rows_to_items.len() => {
+                Some(position) if position.y < self.items.len() => {
                     self.column_cancel();
                     self.focus = position.y;
                 }
