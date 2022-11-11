@@ -15,13 +15,13 @@ extern crate cursive_core as cursive;
 // STD Dependencies -----------------------------------------------------------
 use std::hash::Hash;
 use std::rc::Rc;
+use std::time::{Duration, Instant};
 use std::{borrow::BorrowMut, collections::HashMap};
 use std::{
     cell::Cell,
     cmp::{self, Ordering},
     collections::BTreeSet,
 };
-
 // External Dependencies ------------------------------------------------------
 use cursive::{
     align::HAlign,
@@ -118,6 +118,7 @@ type IndexCallback = Rc<dyn Fn(&mut Cursive, usize, usize)>;
 ///                      .default_column(BasicColumn::Name);
 /// # }
 /// ```
+
 pub struct TableView<T, H> {
     enabled: bool,
     scroll_core: scroll::Core,
@@ -132,6 +133,7 @@ pub struct TableView<T, H> {
     rows_to_items: Vec<usize>,
 
     selected_rows: BTreeSet<usize>,
+    last_focus_time: Instant,
     visible_rows: Cell<usize>,
     on_sort: Option<OnSortCallback<H>>,
     // TODO Pass drawing offsets into the handlers so a popup menu
@@ -186,6 +188,13 @@ where
     T: TableViewItem<H>,
     H: Eq + Hash + Copy + Clone + 'static,
 {
+    ////
+    ///
+    ///
+    ///
+    pub fn get_last_focus_time(&self) -> Instant {
+        self.last_focus_time
+    }
     /// Creates a new empty `TableView` without any columns.
     ///
     /// A TableView should be accompanied by a enum of type `H` representing
@@ -204,6 +213,7 @@ where
             items: Vec::new(),
             rows_to_items: Vec::new(),
             selected_rows: BTreeSet::new(),
+            last_focus_time: Instant::now(),
             visible_rows: Cell::new(0),
             on_sort: None,
             on_submit: None,
@@ -590,7 +600,15 @@ where
     pub fn item(&self) -> Option<usize> {
         self.rows_to_items.get(self.focus).copied()
     }
-
+    ///
+    ///++artie
+    pub fn get_selected_item(&self) -> &T {
+        let inx = match self.item() {
+            Some(inx) => inx,
+            None => 0,
+        };
+        self.borrow_item(inx).unwrap()
+    }
     /// Selects the item at the specified index within the underlying storage
     /// vector.
     pub fn set_selected_item(&mut self, item_index: usize) {
@@ -900,8 +918,12 @@ where
     }
 
     fn on_inner_event(&mut self, event: Event) -> EventResult {
-        let last_focus = self.focus;
+        let last_focus = self.focus; //++artie, the focus here is bit confusing. What it really means is currently selected and in focus row
         match event {
+            Event::Key(Key::Tab) => {
+                self.last_focus_time = Instant::now();
+                return EventResult::Ignored;
+            }
             Event::Key(Key::Ins) => {
                 if self.selected_rows.contains(&last_focus) {
                     self.selected_rows.remove(&last_focus);
