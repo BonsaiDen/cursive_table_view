@@ -35,9 +35,9 @@ use cursive::{
 
 /// A trait for displaying and sorting items inside a
 /// [`TableView`](struct.TableView.html).
-pub trait TableViewItem<H>: Clone + Sized
+pub trait TableViewItem<H>: Sized
 where
-    H: Eq + Hash + Copy + Clone + 'static,
+    H: Eq + Hash + Copy + 'static,
 {
     /// Method returning a string representation of the item for the
     /// specified column from type `H`.
@@ -82,13 +82,13 @@ type IndexCallback = Rc<dyn Fn(&mut Cursive, usize, usize)>;
 ///
 /// // Define the item type
 /// #[derive(Clone, Debug)]
-/// struct Foo {
+/// struct DirView {
 ///     name: String,
 ///     count: usize,
 ///     rate: usize
 /// }
 ///
-/// impl TableViewItem<BasicColumn> for Foo {
+/// impl TableViewItem<BasicColumn> for DirView {
 ///
 ///     fn to_column(&self, column: BasicColumn) -> String {
 ///         match column {
@@ -109,7 +109,7 @@ type IndexCallback = Rc<dyn Fn(&mut Cursive, usize, usize)>;
 /// }
 ///
 /// // Configure the actual table
-/// let table = TableView::<Foo, BasicColumn>::new()
+/// let table = TableView::<DirView, BasicColumn>::new()
 ///                      .column(BasicColumn::Name, "Name", |c| c.width(20))
 ///                      .column(BasicColumn::Count, "Count", |c| c.align(HAlign::Center))
 ///                      .column(BasicColumn::Rate, "Rate", |c| {
@@ -228,8 +228,9 @@ where
         column: H,
         title: S,
         callback: C,
+        has_header: bool,
     ) -> Self {
-        self.add_column(column, title, callback);
+        self.add_column(column, title, callback, has_header);
         self
     }
 
@@ -243,8 +244,9 @@ where
         column: H,
         title: S,
         callback: C,
+        has_header: bool,
     ) {
-        self.insert_column(self.columns.len(), column, title, callback);
+        self.insert_column(self.columns.len(), column, title, callback, has_header);
     }
 
     /// Remove a column.
@@ -270,6 +272,7 @@ where
         column: H,
         title: S,
         callback: C,
+        has_header: bool,
     ) {
         // Update all existing indices
         for column in &self.columns[i..] {
@@ -277,8 +280,10 @@ where
         }
 
         self.column_indicies.insert(column, i);
-        self.columns
-            .insert(i, callback(TableColumn::new(column, title.into())));
+        self.columns.insert(
+            i,
+            callback(TableColumn::new(column, title.into(), has_header)),
+        );
 
         // Make the first colum the default one
         if self.columns.len() == 1 {
@@ -1109,6 +1114,7 @@ pub struct TableColumn<H> {
     width: usize,
     default_order: Ordering,
     requested_width: Option<TableColumnWidth>,
+    has_header: bool,
 }
 
 enum TableColumnWidth {
@@ -1142,7 +1148,7 @@ impl<H: Copy + Clone + 'static> TableColumn<H> {
         self
     }
 
-    fn new(column: H, title: String) -> Self {
+    fn new(column: H, title: String, has_header: bool) -> Self {
         Self {
             column,
             title,
@@ -1152,10 +1158,14 @@ impl<H: Copy + Clone + 'static> TableColumn<H> {
             width: 0,
             default_order: Ordering::Less,
             requested_width: None,
+            has_header,
         }
     }
 
     fn draw_header(&self, printer: &Printer) {
+        if !self.has_header {
+            return;
+        }
         let order = match self.order {
             Ordering::Less => "^",
             Ordering::Greater => "v",
