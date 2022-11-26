@@ -836,7 +836,8 @@ where
                 if !self.column_select && self.enabled && printer.focused {
                     theme::ColorStyle::highlight()
                 } else {
-                    theme::ColorStyle::highlight_inactive()
+                    //theme::ColorStyle::highlight_inactive()
+                    theme::ColorStyle::primary() //++artie, no highlight if !printer.focused
                 }
             } else {
                 theme::ColorStyle::primary()
