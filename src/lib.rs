@@ -1021,7 +1021,8 @@ where
                 if self.column_select && column.selected && self.enabled && printer.focused {
                     theme::ColorStyle::highlight()
                 } else {
-                    theme::ColorStyle::highlight_inactive()
+                    //theme::ColorStyle::highlight_inactive()
+                    theme::ColorStyle::primary() //++artie, if column is not selected don't draw background
                 }
             } else {
                 theme::ColorStyle::primary()
