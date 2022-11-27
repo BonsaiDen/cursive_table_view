@@ -894,6 +894,7 @@ where
         match event {
             Event::Key(Key::Tab) => {
                 self.last_focus_time = Instant::now();
+                self.column_cancel();
                 return EventResult::Ignored;
             }
             Event::Key(Key::Ins) => {
