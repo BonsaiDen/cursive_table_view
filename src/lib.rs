@@ -138,6 +138,7 @@ pub struct TableView<T, H> {
     // can be created easily?
     on_submit: Option<IndexCallback>,
     on_select: Option<IndexCallback>,
+    on_peek: Option<IndexCallback>,
 }
 
 cursive::impl_scroller!(TableView < T, H > ::scroll_core);
@@ -215,6 +216,7 @@ where
             on_sort: None,
             on_submit: None,
             on_select: None,
+            on_peek: None,
         }
     }
 
@@ -490,6 +492,24 @@ where
         F: Fn(&mut Cursive, usize, usize) + 'static,
     {
         self.with(|t| t.set_on_select(cb))
+    }
+    //////////////////////
+    /// Sets a callback to be used when an item is selected in peek mode
+
+    pub fn set_on_peek<F>(&mut self, cb: F)
+    where
+        F: Fn(&mut Cursive, usize, usize) + 'static,
+    {
+        self.on_peek = Some(Rc::new(move |s, row, index| cb(s, row, index)));
+    }
+
+    /// Sets a callback to be used when an item is selected in peek mode
+
+    pub fn on_peek<F>(self, cb: F) -> Self
+    where
+        F: Fn(&mut Cursive, usize, usize) + 'static,
+    {
+        self.with(|t| t.set_on_peek(cb))
     }
 
     /// Removes all items from this view.
@@ -928,6 +948,9 @@ where
                     self.column_cancel();
                 } else {
                     self.focus_up(1);
+                    if self.on_peek.is_some() {
+                        return self.on_peek_event(); //++artie, must return otherwise the result is Ignored
+                    }
                 }
             }
             Event::Key(Key::Down) if self.focus + 1 < self.items.len() || self.column_select => {
@@ -935,6 +958,9 @@ where
                     self.column_cancel();
                 } else {
                     self.focus_down(1);
+                    if self.on_peek.is_some() {
+                        return self.on_peek_event(); //++artie, must return otherwise the result is Ignored
+                    }
                 }
             }
             Event::Key(Key::PageUp) => {
@@ -1003,6 +1029,16 @@ where
 
     fn on_submit_event(&mut self) -> EventResult {
         if let Some(ref cb) = &self.on_submit {
+            let cb = Rc::clone(cb);
+            let row = self.row().unwrap();
+            let index = self.item().unwrap();
+            return EventResult::Consumed(Some(Callback::from_fn(move |s| cb(s, row, index))));
+        }
+        EventResult::Ignored
+    }
+
+    fn on_peek_event(&mut self) -> EventResult {
+        if let Some(ref cb) = &self.on_peek {
             let cb = Rc::clone(cb);
             let row = self.row().unwrap();
             let index = self.item().unwrap();
