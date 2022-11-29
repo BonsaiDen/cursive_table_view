@@ -620,10 +620,19 @@ where
     pub fn get_selected_item(&self) -> &T {
         let inx = match self.item() {
             Some(inx) => inx,
-            None => 0,
+            None => 0, //++artie, zero or None?
         };
         self.borrow_item(inx).unwrap()
     }
+    ///
+    pub fn get_selected_items(&self) -> Vec<&T> {
+        let mut res = Vec::new();
+        for inx in &self.selected_rows {
+            res.push(self.borrow_item(*inx).unwrap());
+        }
+        res
+    }
+
     /// Selects the item at the specified index within the underlying storage
     /// vector.
     pub fn set_selected_item(&mut self, item_index: usize) {
