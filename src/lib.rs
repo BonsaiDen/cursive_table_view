@@ -632,6 +632,14 @@ where
         }
         res
     }
+    ///
+    pub fn get_selected_items_with_indexes(&self) -> Vec<(&usize, &T)> {
+        let mut res = Vec::new();
+        for inx in &self.selected_rows {
+            res.push((inx, self.borrow_item(*inx).unwrap()));
+        }
+        res
+    }
 
     /// Selects the item at the specified index within the underlying storage
     /// vector.
