@@ -640,6 +640,10 @@ where
         }
         res
     }
+    ///
+    pub fn deselect_item(&mut self, inx: usize) {
+        self.selected_rows.remove(&inx);
+    }
 
     /// Selects the item at the specified index within the underlying storage
     /// vector.
