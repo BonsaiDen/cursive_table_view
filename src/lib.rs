@@ -556,6 +556,7 @@ where
     /// The currently active sort order is preserved and will be applied to all
     /// items.
     pub fn set_items(&mut self, items: Vec<T>) {
+        self.selected_rows.clear();
         self.set_items_and_focus(items, 0);
     }
 
@@ -624,7 +625,7 @@ where
         };
         self.borrow_item(inx).unwrap()
     }
-    ///
+    ///++artie, just return the container
     pub fn get_selected_items(&self) -> Vec<&T> {
         let mut res = Vec::new();
         for inx in &self.selected_rows {
