@@ -645,6 +645,10 @@ where
     pub fn deselect_item(&mut self, inx: usize) {
         self.selected_rows.remove(&inx);
     }
+    ///
+    pub fn deselect_all_items(&mut self) {
+        self.selected_rows.clear();
+    }
 
     /// Selects the item at the specified index within the underlying storage
     /// vector.
