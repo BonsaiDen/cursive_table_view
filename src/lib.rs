@@ -617,13 +617,9 @@ where
     pub fn item(&self) -> Option<usize> {
         Some(self.focus)
     }
-    ///
-    pub fn get_selected_item(&self) -> &T {
-        let inx = match self.item() {
-            Some(inx) => inx,
-            None => self.focus,
-        };
-        self.borrow_item(inx).unwrap()
+    ///++artie Returns the item, as opposed to just the inx
+    pub fn get_focused_item(&self) -> &T {
+        self.borrow_item(self.item().unwrap()).unwrap()
     }
     ///++artie, just return the container
     pub fn get_selected_items(&self) -> Vec<&T> {
