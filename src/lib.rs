@@ -621,7 +621,7 @@ where
     pub fn get_selected_item(&self) -> &T {
         let inx = match self.item() {
             Some(inx) => inx,
-            None => 0, //++artie, zero or None?
+            None => self.focus,
         };
         self.borrow_item(inx).unwrap()
     }
