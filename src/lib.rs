@@ -74,7 +74,7 @@ type IndexCallback = Rc<dyn Fn(&mut Cursive, usize, usize)>;
 /// # fn main() {
 /// // Provide a type for the table's columns
 /// #[derive(Copy, Clone, PartialEq, Eq, Hash)]
-/// enum BasicColumn {
+/// enum ClassicColumns {
 ///     Name,
 ///     Count,
 ///     Rate
@@ -88,34 +88,34 @@ type IndexCallback = Rc<dyn Fn(&mut Cursive, usize, usize)>;
 ///     rate: usize
 /// }
 ///
-/// impl TableViewItem<BasicColumn> for DirView {
+/// impl TableViewItem<ClassicColumns> for DirView {
 ///
-///     fn to_column(&self, column: BasicColumn) -> String {
+///     fn to_column(&self, column: ClassicColumns) -> String {
 ///         match column {
-///             BasicColumn::Name => self.name.to_string(),
-///             BasicColumn::Count => format!("{}", self.count),
-///             BasicColumn::Rate => format!("{}", self.rate)
+///             ClassicColumns::Name => self.name.to_string(),
+///             ClassicColumns::Count => format!("{}", self.count),
+///             ClassicColumns::Rate => format!("{}", self.rate)
 ///         }
 ///     }
 ///
-///     fn cmp(&self, other: &Self, column: BasicColumn) -> Ordering where Self: Sized {
+///     fn cmp(&self, other: &Self, column: ClassicColumns) -> Ordering where Self: Sized {
 ///         match column {
-///             BasicColumn::Name => self.name.cmp(&other.name),
-///             BasicColumn::Count => self.count.cmp(&other.count),
-///             BasicColumn::Rate => self.rate.cmp(&other.rate)
+///             ClassicColumns::Name => self.name.cmp(&other.name),
+///             ClassicColumns::Count => self.count.cmp(&other.count),
+///             ClassicColumns::Rate => self.rate.cmp(&other.rate)
 ///         }
 ///     }
 ///
 /// }
 ///
 /// // Configure the actual table
-/// let table = TableView::<DirView, BasicColumn>::new()
-///                      .column(BasicColumn::Name, "Name", |c| c.width(20))
-///                      .column(BasicColumn::Count, "Count", |c| c.align(HAlign::Center))
-///                      .column(BasicColumn::Rate, "Rate", |c| {
+/// let table = TableView::<DirView, ClassicColumns>::new()
+///                      .column(ClassicColumns::Name, "Name", |c| c.width(20))
+///                      .column(ClassicColumns::Count, "Count", |c| c.align(HAlign::Center))
+///                      .column(ClassicColumns::Rate, "Rate", |c| {
 ///                          c.ordering(Ordering::Greater).align(HAlign::Right).width(20)
 ///                      })
-///                      .default_column(BasicColumn::Name);
+///                      .default_column(ClassicColumns::Name);
 /// # }
 /// ```
 
@@ -382,7 +382,7 @@ where
     /// # Example
     ///
     /// ```ignore
-    /// table.set_on_sort(|siv: &mut Cursive, column: BasicColumn, order: Ordering| {
+    /// table.set_on_sort(|siv: &mut Cursive, column: ClassicColumns, order: Ordering| {
     ///
     /// });
     /// ```
@@ -401,7 +401,7 @@ where
     /// # Example
     ///
     /// ```ignore
-    /// table.on_sort(|siv: &mut Cursive, column: BasicColumn, order: Ordering| {
+    /// table.on_sort(|siv: &mut Cursive, column: ClassicColumns, order: Ordering| {
     ///
     /// });
     /// ```
@@ -612,6 +612,14 @@ where
         &mut self.items
     }
 
+    /// ++artie
+    ///
+    /// Can be used to modify the items in place.
+    pub fn get_items_mut(&mut self) -> &mut Vec<T> {
+        self.needs_relayout = true;
+        &mut self.items
+    }
+
     /// Returns the index of the currently selected item within the underlying
     /// storage vector.
     pub fn item(&self) -> Option<usize> {
@@ -788,6 +796,12 @@ where
 
     fn active_column(&self) -> usize {
         self.columns.iter().position(|c| c.selected).unwrap_or(0)
+    }
+
+    ///++artie
+    pub fn get_active_column(&mut self) -> &mut TableColumn<H> {
+        let active_col_inx = self.active_column();
+        &mut self.columns[active_col_inx]
     }
 
     fn column_cancel(&mut self) {
@@ -1167,8 +1181,10 @@ where
 /// A type used for the construction of columns in a
 /// [`TableView`](struct.TableView.html).
 pub struct TableColumn<H> {
-    column: H,
-    title: String,
+    ///++artie
+    pub column: H,
+    ///++artie
+    pub title: String,
     selected: bool,
     alignment: HAlign,
     order: Ordering,
