@@ -619,6 +619,11 @@ where
         self.needs_relayout = true;
         &mut self.items
     }
+    /// ++artie
+    pub fn get_items(&mut self) -> &Vec<T> {
+        self.needs_relayout = true;
+        &self.items
+    }
 
     /// Returns the index of the currently selected item within the underlying
     /// storage vector.
