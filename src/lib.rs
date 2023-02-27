@@ -41,7 +41,7 @@ where
 {
     /// Method returning a string representation of the item for the
     /// specified column from type `H`.
-    fn to_column(&self, column: H) -> String;
+    fn to_column(&self, column: H, item_inx: usize) -> String;
 
     /// Method comparing two items via their specified column from type `H`.
     fn cmp(&self, other: &Self, column: H) -> Ordering
@@ -776,7 +776,7 @@ where
 
     fn draw_item(&self, printer: &Printer, i: usize) {
         self.draw_columns(printer, "┆ ", |printer, column| {
-            let value = self.items[i].to_column(column.column);
+            let value = self.items[i].to_column(column.column, i);
             column.draw_row(printer, value.as_str());
         });
     }
