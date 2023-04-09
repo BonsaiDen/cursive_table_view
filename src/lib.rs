@@ -82,13 +82,13 @@ type IndexCallback = Rc<dyn Fn(&mut Cursive, usize, usize)>;
 ///
 /// // Define the item type
 /// #[derive(Clone, Debug)]
-/// struct DirView {
+/// struct DirViewRow {
 ///     name: String,
 ///     count: usize,
 ///     rate: usize
 /// }
 ///
-/// impl TableViewItem<ClassicColumns> for DirView {
+/// impl TableViewItem<ClassicColumns> for DirViewRow {
 ///
 ///     fn to_column(&self, column: ClassicColumns) -> String {
 ///         match column {
@@ -109,7 +109,7 @@ type IndexCallback = Rc<dyn Fn(&mut Cursive, usize, usize)>;
 /// }
 ///
 /// // Configure the actual table
-/// let table = TableView::<DirView, ClassicColumns>::new()
+/// let table = TableView::<DirViewRow, ClassicColumns>::new()
 ///                      .column(ClassicColumns::Name, "Name", |c| c.width(20))
 ///                      .column(ClassicColumns::Count, "Count", |c| c.align(HAlign::Center))
 ///                      .column(ClassicColumns::Rate, "Rate", |c| {
@@ -632,7 +632,8 @@ where
     }
     ///++artie Returns the item, as opposed to just the inx
     pub fn get_focused_item(&self) -> &T {
-        self.borrow_item(self.item().unwrap()).unwrap()
+        let inx = self.item().unwrap();
+        self.borrow_item(inx).unwrap()
     }
     ///++artie, just return the container
     pub fn get_selected_items(&self) -> Vec<&T> {
