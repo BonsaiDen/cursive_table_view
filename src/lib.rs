@@ -131,7 +131,8 @@ pub struct TableView<T, H> {
     focus: usize,
     items: Vec<T>,
     selected_rows: BTreeSet<usize>,
-    last_focus_time: Instant,
+    //#[cfg(deprecated)]
+    last_focus_time: Instant, //++artie
     visible_rows: Cell<usize>,
     on_sort: Option<OnSortCallback<H>>,
     // TODO Pass drawing offsets into the handlers so a popup menu
