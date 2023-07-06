@@ -14,7 +14,6 @@ use cursive::align::HAlign;
 use cursive::direction::Orientation;
 use cursive::traits::*;
 use cursive::views::{Dialog, DummyView, LinearLayout, ResizedView};
-use rand::Rng;
 
 // Modules --------------------------------------------------------------------
 // ----------------------------------------------------------------------------

@@ -13,11 +13,15 @@
 extern crate cursive_core as cursive;
 
 // STD Dependencies -----------------------------------------------------------
-use std::cmp::{self, Ordering};
-use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
-
+use std::time::{Duration, Instant};
+use std::{borrow::BorrowMut, collections::HashMap};
+use std::{
+    cell::Cell,
+    cmp::{self, Ordering},
+    collections::BTreeSet,
+};
 // External Dependencies ------------------------------------------------------
 use cursive::{
     align::HAlign,
@@ -31,13 +35,13 @@ use cursive::{
 
 /// A trait for displaying and sorting items inside a
 /// [`TableView`](struct.TableView.html).
-pub trait TableViewItem<H>: Clone + Sized
+pub trait TableViewItem<H>: Sized
 where
-    H: Eq + Hash + Copy + Clone + 'static,
+    H: Eq + Hash + Copy + 'static,
 {
     /// Method returning a string representation of the item for the
     /// specified column from type `H`.
-    fn to_column(&self, column: H) -> String;
+    fn to_column(&self, column: H, item_inx: usize) -> String;
 
     /// Method comparing two items via their specified column from type `H`.
     fn cmp(&self, other: &Self, column: H) -> Ordering
@@ -70,7 +74,7 @@ type IndexCallback = Rc<dyn Fn(&mut Cursive, usize, usize)>;
 /// # fn main() {
 /// // Provide a type for the table's columns
 /// #[derive(Copy, Clone, PartialEq, Eq, Hash)]
-/// enum BasicColumn {
+/// enum ClassicColumns {
 ///     Name,
 ///     Count,
 ///     Rate
@@ -78,42 +82,43 @@ type IndexCallback = Rc<dyn Fn(&mut Cursive, usize, usize)>;
 ///
 /// // Define the item type
 /// #[derive(Clone, Debug)]
-/// struct Foo {
+/// struct DirViewRow {
 ///     name: String,
 ///     count: usize,
 ///     rate: usize
 /// }
 ///
-/// impl TableViewItem<BasicColumn> for Foo {
+/// impl TableViewItem<ClassicColumns> for DirViewRow {
 ///
-///     fn to_column(&self, column: BasicColumn) -> String {
+///     fn to_column(&self, column: ClassicColumns) -> String {
 ///         match column {
-///             BasicColumn::Name => self.name.to_string(),
-///             BasicColumn::Count => format!("{}", self.count),
-///             BasicColumn::Rate => format!("{}", self.rate)
+///             ClassicColumns::Name => self.name.to_string(),
+///             ClassicColumns::Count => format!("{}", self.count),
+///             ClassicColumns::Rate => format!("{}", self.rate)
 ///         }
 ///     }
 ///
-///     fn cmp(&self, other: &Self, column: BasicColumn) -> Ordering where Self: Sized {
+///     fn cmp(&self, other: &Self, column: ClassicColumns) -> Ordering where Self: Sized {
 ///         match column {
-///             BasicColumn::Name => self.name.cmp(&other.name),
-///             BasicColumn::Count => self.count.cmp(&other.count),
-///             BasicColumn::Rate => self.rate.cmp(&other.rate)
+///             ClassicColumns::Name => self.name.cmp(&other.name),
+///             ClassicColumns::Count => self.count.cmp(&other.count),
+///             ClassicColumns::Rate => self.rate.cmp(&other.rate)
 ///         }
 ///     }
 ///
 /// }
 ///
 /// // Configure the actual table
-/// let table = TableView::<Foo, BasicColumn>::new()
-///                      .column(BasicColumn::Name, "Name", |c| c.width(20))
-///                      .column(BasicColumn::Count, "Count", |c| c.align(HAlign::Center))
-///                      .column(BasicColumn::Rate, "Rate", |c| {
+/// let table = TableView::<DirViewRow, ClassicColumns>::new()
+///                      .column(ClassicColumns::Name, "Name", |c| c.width(20))
+///                      .column(ClassicColumns::Count, "Count", |c| c.align(HAlign::Center))
+///                      .column(ClassicColumns::Rate, "Rate", |c| {
 ///                          c.ordering(Ordering::Greater).align(HAlign::Right).width(20)
 ///                      })
-///                      .default_column(BasicColumn::Name);
+///                      .default_column(ClassicColumns::Name);
 /// # }
 /// ```
+
 pub struct TableView<T, H> {
     enabled: bool,
     scroll_core: scroll::Core,
@@ -125,13 +130,16 @@ pub struct TableView<T, H> {
 
     focus: usize,
     items: Vec<T>,
-    rows_to_items: Vec<usize>,
-
+    selected_rows: BTreeSet<usize>,
+    //#[cfg(deprecated)]
+    last_focus_time: Instant, //++artie
+    visible_rows: Cell<usize>,
     on_sort: Option<OnSortCallback<H>>,
     // TODO Pass drawing offsets into the handlers so a popup menu
     // can be created easily?
     on_submit: Option<IndexCallback>,
     on_select: Option<IndexCallback>,
+    on_peek: Option<IndexCallback>,
 }
 
 cursive::impl_scroller!(TableView < T, H > ::scroll_core);
@@ -180,6 +188,13 @@ where
     T: TableViewItem<H>,
     H: Eq + Hash + Copy + Clone + 'static,
 {
+    ////
+    ///
+    ///
+    ///
+    pub fn get_last_focus_time(&self) -> Instant {
+        self.last_focus_time
+    }
     /// Creates a new empty `TableView` without any columns.
     ///
     /// A TableView should be accompanied by a enum of type `H` representing
@@ -196,11 +211,13 @@ where
 
             focus: 0,
             items: Vec::new(),
-            rows_to_items: Vec::new(),
-
+            selected_rows: BTreeSet::new(),
+            last_focus_time: Instant::now(),
+            visible_rows: Cell::new(0),
             on_sort: None,
             on_submit: None,
             on_select: None,
+            on_peek: None,
         }
     }
 
@@ -214,8 +231,9 @@ where
         column: H,
         title: S,
         callback: C,
+        has_header: bool,
     ) -> Self {
-        self.add_column(column, title, callback);
+        self.add_column(column, title, callback, has_header);
         self
     }
 
@@ -229,8 +247,9 @@ where
         column: H,
         title: S,
         callback: C,
+        has_header: bool,
     ) {
-        self.insert_column(self.columns.len(), column, title, callback);
+        self.insert_column(self.columns.len(), column, title, callback, has_header);
     }
 
     /// Remove a column.
@@ -256,6 +275,7 @@ where
         column: H,
         title: S,
         callback: C,
+        has_header: bool,
     ) {
         // Update all existing indices
         for column in &self.columns[i..] {
@@ -263,8 +283,10 @@ where
         }
 
         self.column_indicies.insert(column, i);
-        self.columns
-            .insert(i, callback(TableColumn::new(column, title.into())));
+        self.columns.insert(
+            i,
+            callback(TableColumn::new(column, title.into(), has_header)),
+        );
 
         // Make the first colum the default one
         if self.columns.len() == 1 {
@@ -361,7 +383,7 @@ where
     /// # Example
     ///
     /// ```ignore
-    /// table.set_on_sort(|siv: &mut Cursive, column: BasicColumn, order: Ordering| {
+    /// table.set_on_sort(|siv: &mut Cursive, column: ClassicColumns, order: Ordering| {
     ///
     /// });
     /// ```
@@ -380,7 +402,7 @@ where
     /// # Example
     ///
     /// ```ignore
-    /// table.on_sort(|siv: &mut Cursive, column: BasicColumn, order: Ordering| {
+    /// table.on_sort(|siv: &mut Cursive, column: ClassicColumns, order: Ordering| {
     ///
     /// });
     /// ```
@@ -472,11 +494,28 @@ where
     {
         self.with(|t| t.set_on_select(cb))
     }
+    //////////////////////
+    /// Sets a callback to be used when an item is selected in peek mode
+
+    pub fn set_on_peek<F>(&mut self, cb: F)
+    where
+        F: Fn(&mut Cursive, usize, usize) + 'static,
+    {
+        self.on_peek = Some(Rc::new(move |s, row, index| cb(s, row, index)));
+    }
+
+    /// Sets a callback to be used when an item is selected in peek mode
+
+    pub fn on_peek<F>(self, cb: F) -> Self
+    where
+        F: Fn(&mut Cursive, usize, usize) + 'static,
+    {
+        self.with(|t| t.set_on_peek(cb))
+    }
 
     /// Removes all items from this view.
     pub fn clear(&mut self) {
         self.items.clear();
-        self.rows_to_items.clear();
         self.focus = 0;
         self.needs_relayout = true;
     }
@@ -518,16 +557,12 @@ where
     /// The currently active sort order is preserved and will be applied to all
     /// items.
     pub fn set_items(&mut self, items: Vec<T>) {
+        self.selected_rows.clear();
         self.set_items_and_focus(items, 0);
     }
 
     fn set_items_and_focus(&mut self, items: Vec<T>, new_location: usize) {
         self.items = items;
-        self.rows_to_items = Vec::with_capacity(self.items.len());
-
-        for i in 0..self.items.len() {
-            self.rows_to_items.push(i);
-        }
 
         if let Some((column, order)) = self.order() {
             // Preserve the selected column if possible.
@@ -578,25 +613,59 @@ where
         &mut self.items
     }
 
+    /// ++artie
+    ///
+    /// Can be used to modify the items in place.
+    pub fn get_items_mut(&mut self) -> &mut Vec<T> {
+        self.needs_relayout = true;
+        &mut self.items
+    }
+    /// ++artie
+    pub fn get_items(&mut self) -> &Vec<T> {
+        self.needs_relayout = true;
+        &self.items
+    }
+
     /// Returns the index of the currently selected item within the underlying
     /// storage vector.
     pub fn item(&self) -> Option<usize> {
-        self.rows_to_items.get(self.focus).copied()
+        Some(self.focus)
+    }
+    ///++artie Returns the item, as opposed to just the inx
+    pub fn get_focused_item(&self) -> &T {
+        let inx = self.item().unwrap();
+        self.borrow_item(inx).unwrap()
+    }
+    ///++artie, just return the container
+    pub fn get_selected_items(&self) -> Vec<&T> {
+        let mut res = Vec::new();
+        for inx in &self.selected_rows {
+            res.push(self.borrow_item(*inx).unwrap());
+        }
+        res
+    }
+    ///
+    pub fn get_selected_items_with_indexes(&self) -> Vec<(&usize, &T)> {
+        let mut res = Vec::new();
+        for inx in &self.selected_rows {
+            res.push((inx, self.borrow_item(*inx).unwrap()));
+        }
+        res
+    }
+    ///
+    pub fn deselect_item(&mut self, inx: usize) {
+        self.selected_rows.remove(&inx);
+    }
+    ///
+    pub fn deselect_all_items(&mut self) {
+        self.selected_rows.clear();
     }
 
     /// Selects the item at the specified index within the underlying storage
     /// vector.
     pub fn set_selected_item(&mut self, item_index: usize) {
-        // TODO optimize the performance for very large item lists
-        if item_index < self.items.len() {
-            for (row, item) in self.rows_to_items.iter().enumerate() {
-                if *item == item_index {
-                    self.focus = row;
-                    self.scroll_core.scroll_to_y(row);
-                    break;
-                }
-            }
-        }
+        self.focus = item_index;
+        self.scroll_core.scroll_to_y(self.focus);
     }
 
     /// Selects the item at the specified index within the underlying storage
@@ -627,11 +696,9 @@ where
     /// # Panics
     ///
     /// If `index > self.len()`.
+    #[deprecated(note = "Don't use it. It is slow with current underlying storage container")]
     pub fn insert_item_at(&mut self, index: usize, item: T) {
-        self.items.push(item);
-
-        // Here we know self.items.len() > 0
-        self.rows_to_items.insert(index, self.items.len() - 1);
+        self.items.insert(index, item);
 
         if let Some((column, order)) = self.order() {
             self.sort_by(column, order);
@@ -644,21 +711,10 @@ where
     pub fn remove_item(&mut self, item_index: usize) -> Option<T> {
         if item_index < self.items.len() {
             // Move the selection if the currently selected item gets removed
-            if let Some(selected_index) = self.item() {
-                if selected_index == item_index {
-                    self.focus_up(1);
-                }
+            if self.focus == item_index {
+                self.focus_up(1);
             }
 
-            // Remove the sorted reference to the item
-            self.rows_to_items.retain(|i| *i != item_index);
-
-            // Adjust remaining references
-            for ref_index in &mut self.rows_to_items {
-                if *ref_index > item_index {
-                    *ref_index -= 1;
-                }
-            }
             self.needs_relayout = true;
 
             // Remove actual item from the underlying storage
@@ -671,7 +727,6 @@ where
     /// Removes all items from the underlying storage and returns them.
     pub fn take_items(&mut self) -> Vec<T> {
         self.set_selected_row(0);
-        self.rows_to_items.clear();
         self.needs_relayout = true;
         self.items.drain(0..).collect()
     }
@@ -707,15 +762,13 @@ where
         if !self.is_empty() {
             let old_item = self.item();
 
-            let mut rows_to_items = self.rows_to_items.clone();
-            rows_to_items.sort_by(|a, b| {
+            self.items.sort_by(|a, b| {
                 if order == Ordering::Less {
-                    self.items[*a].cmp(&self.items[*b], column)
+                    a.cmp(b, column)
                 } else {
-                    self.items[*b].cmp(&self.items[*a], column)
+                    b.cmp(a, column)
                 }
             });
-            self.rows_to_items = rows_to_items;
 
             if let Some(old_item) = old_item {
                 self.set_selected_item(old_item);
@@ -725,7 +778,7 @@ where
 
     fn draw_item(&self, printer: &Printer, i: usize) {
         self.draw_columns(printer, "┆ ", |printer, column| {
-            let value = self.items[self.rows_to_items[i]].to_column(column.column);
+            let value = self.items[i].to_column(column.column, i);
             column.draw_row(printer, value.as_str());
         });
     }
@@ -750,6 +803,12 @@ where
 
     fn active_column(&self) -> usize {
         self.columns.iter().position(|c| c.selected).unwrap_or(0)
+    }
+
+    ///++artie
+    pub fn get_active_column(&mut self) -> &mut TableColumn<H> {
+        let active_col_inx = self.active_column();
+        &mut self.columns[active_col_inx]
     }
 
     fn column_cancel(&mut self) {
@@ -824,13 +883,24 @@ where
     }
 
     fn draw_content(&self, printer: &Printer) {
-        for i in 0..self.rows_to_items.len() {
+        for i in 0..self.items.len() {
             let printer = printer.offset((0, i));
-            let color = if i == self.focus && self.enabled {
+            let color = if self.selected_rows.contains(&i) && i != self.focus && self.enabled {
+                theme::ColorStyle::new(
+                    theme::ColorType::Palette(theme::PaletteColor::TitleSecondary),
+                    theme::ColorType::Palette(theme::PaletteColor::View),
+                )
+            } else if self.selected_rows.contains(&i) && i == self.focus && self.enabled {
+                theme::ColorStyle::new(
+                    theme::ColorType::Palette(theme::PaletteColor::TitleSecondary),
+                    theme::ColorType::Palette(theme::PaletteColor::Highlight),
+                )
+            } else if i == self.focus && self.enabled {
                 if !self.column_select && self.enabled && printer.focused {
                     theme::ColorStyle::highlight()
                 } else {
-                    theme::ColorStyle::highlight_inactive()
+                    //theme::ColorStyle::highlight_inactive()
+                    theme::ColorStyle::primary() //++artie, no highlight if !printer.focused
                 }
             } else {
                 theme::ColorStyle::primary()
@@ -879,12 +949,25 @@ where
     }
 
     fn content_required_size(&mut self, req: Vec2) -> Vec2 {
-        Vec2::new(req.x, self.rows_to_items.len())
+        Vec2::new(req.x, self.items.len())
     }
 
     fn on_inner_event(&mut self, event: Event) -> EventResult {
-        let last_focus = self.focus;
+        let last_focus = self.focus; //++artie, the focus here is bit confusing. What it really means is currently selected and in focus row
         match event {
+            Event::Key(Key::Tab) => {
+                self.last_focus_time = Instant::now();
+                self.column_cancel();
+                return EventResult::Ignored;
+            }
+            Event::Key(Key::Ins) => {
+                if self.selected_rows.contains(&last_focus) {
+                    self.selected_rows.remove(&last_focus);
+                } else {
+                    self.selected_rows.insert(last_focus);
+                }
+                self.focus_down(1);
+            }
             Event::Key(Key::Right) => {
                 if self.column_select {
                     if !self.column_next() {
@@ -908,6 +991,9 @@ where
                     self.column_cancel();
                 } else {
                     self.focus_up(1);
+                    if self.on_peek.is_some() {
+                        return self.on_peek_event(); //++artie, must return otherwise the result is Ignored
+                    }
                 }
             }
             Event::Key(Key::Down) if self.focus + 1 < self.items.len() || self.column_select => {
@@ -915,15 +1001,18 @@ where
                     self.column_cancel();
                 } else {
                     self.focus_down(1);
+                    if self.on_peek.is_some() {
+                        return self.on_peek_event(); //++artie, must return otherwise the result is Ignored
+                    }
                 }
             }
             Event::Key(Key::PageUp) => {
                 self.column_cancel();
-                self.focus_up(10);
+                self.focus_up(self.visible_rows.get());
             }
             Event::Key(Key::PageDown) => {
                 self.column_cancel();
-                self.focus_down(10);
+                self.focus_down(self.visible_rows.get());
             }
             Event::Key(Key::Home) => {
                 self.column_cancel();
@@ -957,7 +1046,7 @@ where
                 offset,
                 event: MouseEvent::Press(_),
             } if !self.is_empty() => match position.checked_sub(offset) {
-                Some(position) if position.y < self.rows_to_items.len() => {
+                Some(position) if position.y < self.items.len() => {
                     self.column_cancel();
                     self.focus = position.y;
                 }
@@ -990,6 +1079,16 @@ where
         }
         EventResult::Ignored
     }
+
+    fn on_peek_event(&mut self) -> EventResult {
+        if let Some(ref cb) = &self.on_peek {
+            let cb = Rc::clone(cb);
+            let row = self.row().unwrap();
+            let index = self.item().unwrap();
+            return EventResult::Consumed(Some(Callback::from_fn(move |s| cb(s, row, index))));
+        }
+        EventResult::Ignored
+    }
 }
 
 impl<T, H> View for TableView<T, H>
@@ -1003,7 +1102,8 @@ where
                 if self.column_select && column.selected && self.enabled && printer.focused {
                     theme::ColorStyle::highlight()
                 } else {
-                    theme::ColorStyle::highlight_inactive()
+                    //theme::ColorStyle::highlight_inactive()
+                    theme::ColorStyle::primary() //++artie, if column is not selected don't draw background
                 }
             } else {
                 theme::ColorStyle::primary()
@@ -1029,6 +1129,7 @@ where
 
         let printer = &printer.offset((0, 2)).focused(true);
         scroll::draw(self, printer, Self::draw_content);
+        self.visible_rows.set(printer.size.y);
     }
 
     fn layout(&mut self, size: Vec2) {
@@ -1087,14 +1188,17 @@ where
 /// A type used for the construction of columns in a
 /// [`TableView`](struct.TableView.html).
 pub struct TableColumn<H> {
-    column: H,
-    title: String,
+    ///++artie
+    pub column: H,
+    ///++artie
+    pub title: String,
     selected: bool,
     alignment: HAlign,
     order: Ordering,
     width: usize,
     default_order: Ordering,
     requested_width: Option<TableColumnWidth>,
+    has_header: bool,
 }
 
 enum TableColumnWidth {
@@ -1128,7 +1232,7 @@ impl<H: Copy + Clone + 'static> TableColumn<H> {
         self
     }
 
-    fn new(column: H, title: String) -> Self {
+    fn new(column: H, title: String, has_header: bool) -> Self {
         Self {
             column,
             title,
@@ -1138,10 +1242,14 @@ impl<H: Copy + Clone + 'static> TableColumn<H> {
             width: 0,
             default_order: Ordering::Less,
             requested_width: None,
+            has_header,
         }
     }
 
     fn draw_header(&self, printer: &Printer) {
+        if !self.has_header {
+            return;
+        }
         let order = match self.order {
             Ordering::Less => "^",
             Ordering::Greater => "v",
