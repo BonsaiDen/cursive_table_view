@@ -55,7 +55,7 @@ type OnSortCallback<H> = Rc<dyn Fn(&mut Cursive, H, Ordering)>;
 /// Callback taking as argument the row and the index of an element.
 ///
 /// This is a private type to help readability.
-type IndexCallback = Rc<dyn Fn(&mut Cursive, usize, usize)>;
+type IndexCallback = Rc<dyn Fn(&mut Cursive, Option<usize>, Option<usize>)>;
 
 /// View to select an item among a list, supporting multiple columns for sorting.
 ///
@@ -123,7 +123,7 @@ pub struct TableView<T, H> {
     columns: Vec<TableColumn<H>>,
     column_indicies: HashMap<H, usize>,
 
-    focus: usize,
+    focus: Option<usize>,
     items: Vec<T>,
     rows_to_items: Vec<usize>,
 
@@ -168,8 +168,7 @@ where
             .and_then(|old_item| {
                 let old_item = &self.items[old_item];
                 items.iter().position(|new| new == old_item)
-            })
-            .unwrap_or(0);
+            });
 
         self.set_items_and_focus(items, new_location);
     }
@@ -194,7 +193,7 @@ where
             columns: Vec::new(),
             column_indicies: HashMap::new(),
 
-            focus: 0,
+            focus: None,
             items: Vec::new(),
             rows_to_items: Vec::new(),
 
@@ -400,13 +399,13 @@ where
     /// # Example
     ///
     /// ```ignore
-    /// table.set_on_submit(|siv: &mut Cursive, row: usize, index: usize| {
+    /// table.set_on_submit(|siv: &mut Cursive, row: Option<usize>, index: Option<usize>| {
     ///
     /// });
     /// ```
     pub fn set_on_submit<F>(&mut self, cb: F)
     where
-        F: Fn(&mut Cursive, usize, usize) + 'static,
+        F: Fn(&mut Cursive, Option<usize>, Option<usize>) + 'static,
     {
         self.on_submit = Some(Rc::new(move |s, row, index| cb(s, row, index)));
     }
@@ -422,13 +421,13 @@ where
     /// # Example
     ///
     /// ```ignore
-    /// table.on_submit(|siv: &mut Cursive, row: usize, index: usize| {
+    /// table.on_submit(|siv: &mut Cursive, row: Option<usize>, index: Option<usize>| {
     ///
     /// });
     /// ```
     pub fn on_submit<F>(self, cb: F) -> Self
     where
-        F: Fn(&mut Cursive, usize, usize) + 'static,
+        F: Fn(&mut Cursive, Option<usize>, Option<usize>) + 'static,
     {
         self.with(|t| t.set_on_submit(cb))
     }
@@ -441,13 +440,13 @@ where
     /// # Example
     ///
     /// ```ignore
-    /// table.set_on_select(|siv: &mut Cursive, row: usize, index: usize| {
+    /// table.set_on_select(|siv: &mut Cursive, row: Option<usize>, index: Option<usize>| {
     ///
     /// });
     /// ```
     pub fn set_on_select<F>(&mut self, cb: F)
     where
-        F: Fn(&mut Cursive, usize, usize) + 'static,
+        F: Fn(&mut Cursive, Option<usize>, Option<usize>) + 'static,
     {
         self.on_select = Some(Rc::new(move |s, row, index| cb(s, row, index)));
     }
@@ -462,13 +461,13 @@ where
     /// # Example
     ///
     /// ```ignore
-    /// table.on_select(|siv: &mut Cursive, row: usize, index: usize| {
+    /// table.on_select(|siv: &mut Cursive, row: Option<usize>, index: Option<usize>| {
     ///
     /// });
     /// ```
     pub fn on_select<F>(self, cb: F) -> Self
     where
-        F: Fn(&mut Cursive, usize, usize) + 'static,
+        F: Fn(&mut Cursive, Option<usize>, Option<usize>) + 'static,
     {
         self.with(|t| t.set_on_select(cb))
     }
@@ -477,7 +476,7 @@ where
     pub fn clear(&mut self) {
         self.items.clear();
         self.rows_to_items.clear();
-        self.focus = 0;
+        self.focus = None;
         self.needs_relayout = true;
     }
 
@@ -496,13 +495,13 @@ where
         if self.items.is_empty() {
             None
         } else {
-            Some(self.focus)
+            self.focus
         }
     }
 
     /// Selects the row at the specified index.
     pub fn set_selected_row(&mut self, row_index: usize) {
-        self.focus = row_index;
+        self.focus = Some(row_index);
         self.scroll_core.scroll_to_y(row_index);
     }
 
@@ -518,10 +517,10 @@ where
     /// The currently active sort order is preserved and will be applied to all
     /// items.
     pub fn set_items(&mut self, items: Vec<T>) {
-        self.set_items_and_focus(items, 0);
+        self.set_items_and_focus(items, None);
     }
 
-    fn set_items_and_focus(&mut self, items: Vec<T>, new_location: usize) {
+    fn set_items_and_focus(&mut self, items: Vec<T>, new_location: Option<usize>) {
         self.items = items;
         self.rows_to_items = Vec::with_capacity(self.items.len());
 
@@ -540,7 +539,9 @@ where
             }
         }
 
-        self.set_selected_item(new_location);
+        if let Some(new_location) = new_location {
+            self.set_selected_item(new_location);
+        }
         self.needs_relayout = true;
     }
 
@@ -581,7 +582,11 @@ where
     /// Returns the index of the currently selected item within the underlying
     /// storage vector.
     pub fn item(&self) -> Option<usize> {
-        self.rows_to_items.get(self.focus).copied()
+        if let Some(focus) = self.focus {
+            self.rows_to_items.get(focus).copied()
+        } else {
+            None
+        }
     }
 
     /// Selects the item at the specified index within the underlying storage
@@ -591,7 +596,7 @@ where
         if item_index < self.items.len() {
             for (row, item) in self.rows_to_items.iter().enumerate() {
                 if *item == item_index {
-                    self.focus = row;
+                    self.focus = Some(row);
                     self.scroll_core.scroll_to_y(row);
                     break;
                 }
@@ -731,8 +736,8 @@ where
     }
 
     fn on_focus_change(&self) -> EventResult {
-        let row = self.row().unwrap();
-        let index = self.item().unwrap();
+        let row = self.row();
+        let index = self.item();
         EventResult::Consumed(
             self.on_select
                 .clone()
@@ -741,11 +746,12 @@ where
     }
 
     fn focus_up(&mut self, n: usize) {
-        self.focus -= cmp::min(self.focus, n);
+        self.focus = Some(self.focus.map_or(0, |x| x - cmp::min(x, n)));
     }
 
     fn focus_down(&mut self, n: usize) {
-        self.focus = cmp::min(self.focus + n, self.items.len().saturating_sub(1));
+        let items = self.items.len().saturating_sub(1);
+        self.focus = Some(self.focus.map_or(0, |x| cmp::min(x + n, items)));
     }
 
     fn active_column(&self) -> usize {
@@ -826,7 +832,7 @@ where
     fn draw_content(&self, printer: &Printer) {
         for i in 0..self.rows_to_items.len() {
             let printer = printer.offset((0, i));
-            let color = if i == self.focus && self.enabled {
+            let color = if Some(i) == self.focus && self.enabled {
                 if !self.column_select && self.enabled && printer.focused {
                     theme::ColorStyle::highlight()
                 } else {
@@ -903,14 +909,14 @@ where
                     self.column_select = true;
                 }
             }
-            Event::Key(Key::Up) if self.focus > 0 || self.column_select => {
+            Event::Key(Key::Up) => {
                 if self.column_select {
                     self.column_cancel();
                 } else {
                     self.focus_up(1);
                 }
             }
-            Event::Key(Key::Down) if self.focus + 1 < self.items.len() || self.column_select => {
+            Event::Key(Key::Down) => {
                 if self.column_select {
                     self.column_cancel();
                 } else {
@@ -927,11 +933,11 @@ where
             }
             Event::Key(Key::Home) => {
                 self.column_cancel();
-                self.focus = 0;
+                self.focus = None;
             }
             Event::Key(Key::End) => {
                 self.column_cancel();
-                self.focus = self.items.len().saturating_sub(1);
+                self.focus = Some(self.items.len().saturating_sub(1));
             }
             Event::Key(Key::Enter) => {
                 if self.column_select {
@@ -947,7 +953,7 @@ where
             } if !self.is_empty()
                 && position
                     .checked_sub(offset)
-                    .map_or(false, |p| p.y == self.focus) =>
+                    .map_or(false, |p| Some(p.y) == self.focus) =>
             {
                 self.column_cancel();
                 return self.on_submit_event();
@@ -959,7 +965,7 @@ where
             } if !self.is_empty() => match position.checked_sub(offset) {
                 Some(position) if position.y < self.rows_to_items.len() => {
                     self.column_cancel();
-                    self.focus = position.y;
+                    self.focus = Some(position.y);
                 }
                 _ => return EventResult::Ignored,
             },
@@ -978,14 +984,14 @@ where
     }
 
     fn inner_important_area(&self, size: Vec2) -> Rect {
-        Rect::from_size((0, self.focus), (size.x, 1))
+        Rect::from_size((0, self.focus.unwrap_or_default()), (size.x, 1))
     }
 
     fn on_submit_event(&mut self) -> EventResult {
         if let Some(ref cb) = &self.on_submit {
             let cb = Rc::clone(cb);
-            let row = self.row().unwrap();
-            let index = self.item().unwrap();
+            let row = self.row();
+            let index = self.item();
             return EventResult::Consumed(Some(Callback::from_fn(move |s| cb(s, row, index))));
         }
         EventResult::Ignored

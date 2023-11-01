@@ -99,19 +99,23 @@ fn main() {
         );
     });
 
-    table.set_on_submit(|siv: &mut Cursive, row: usize, index: usize| {
+    table.set_on_submit(|siv: &mut Cursive, row: Option<usize>, index: Option<usize>| {
+        if !index.is_some() {
+            return;
+        }
+
         let value = siv
             .call_on_name("table", move |table: &mut TableView<Foo, BasicColumn>| {
-                format!("{:?}", table.borrow_item(index).unwrap())
+                format!("{:?}", table.borrow_item(index.unwrap()).unwrap())
             })
             .unwrap();
 
         siv.add_layer(
             Dialog::around(TextView::new(value))
-                .title(format!("Removing row # {}", row))
+                .title(format!("Removing row # {}", row.unwrap()))
                 .button("Close", move |s| {
                     s.call_on_name("table", |table: &mut TableView<Foo, BasicColumn>| {
-                        table.remove_item(index);
+                        table.remove_item(index.unwrap());
                     });
                     s.pop_layer();
                 }),
