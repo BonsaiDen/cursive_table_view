@@ -10,8 +10,12 @@ categories = ["command-line-interface", "gui"]
 license = "MIT/Apache-2.0"
 
 [dependencies]
-cursive_core = "0.3.0"
+cursive_core = "*"
 
 [dev-dependencies]
-cursive = "0.17.0"
+cursive = "*"
 rand = "0.8"
+
+[patch.crates-io]
+cursive = { git = "https://github.com/gyscos/cursive", branch = "main" }
+cursive_core = { git = "https://github.com/gyscos/cursive", branch = "main" }
