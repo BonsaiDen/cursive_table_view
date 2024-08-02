@@ -1,6 +1,6 @@
 [package]
 name = "cursive_table_view"
-version = "0.14.0"
+version = "0.15.0"
 edition = "2021"
 authors = ["Ivo Wetzel <ivo.wetzel@googlemail.com>", "Alexandre Bury <alexandre.bury@gmail.com>"]
 description = "A basic table view implementation for cursive."
