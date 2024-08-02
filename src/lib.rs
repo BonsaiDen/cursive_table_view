@@ -16,7 +16,7 @@ extern crate cursive_core as cursive;
 use std::cmp::{self, Ordering};
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::rc::Rc;
+use std::sync::Arc;
 
 // External Dependencies ------------------------------------------------------
 use cursive::{
@@ -33,7 +33,7 @@ use cursive::{
 /// [`TableView`](struct.TableView.html).
 pub trait TableViewItem<H>: Clone + Sized
 where
-    H: Eq + Hash + Copy + Clone + 'static,
+    H: Eq + Hash + Copy + Clone + Send + Sync + 'static,
 {
     /// Method returning a string representation of the item for the
     /// specified column from type `H`.
@@ -50,12 +50,12 @@ where
 /// It takes the column and the ordering as input.
 ///
 /// This is a private type to help readability.
-type OnSortCallback<H> = Rc<dyn Fn(&mut Cursive, H, Ordering)>;
+type OnSortCallback<H> = Arc<dyn Fn(&mut Cursive, H, Ordering) + Send + Sync>;
 
 /// Callback taking as argument the row and the index of an element.
 ///
 /// This is a private type to help readability.
-type IndexCallback = Rc<dyn Fn(&mut Cursive, usize, usize)>;
+type IndexCallback = Arc<dyn Fn(&mut Cursive, usize, usize) + Send + Sync>;
 
 /// View to select an item among a list, supporting multiple columns for sorting.
 ///
@@ -139,7 +139,7 @@ cursive::impl_scroller!(TableView < T, H > ::scroll_core);
 impl<T, H> Default for TableView<T, H>
 where
     T: TableViewItem<H> + PartialEq,
-    H: Eq + Hash + Copy + Clone + 'static,
+    H: Eq + Hash + Copy + Clone + Send + Sync + 'static,
 {
     /// Creates a new empty `TableView` without any columns.
     ///
@@ -152,7 +152,7 @@ where
 impl<T, H> TableView<T, H>
 where
     T: TableViewItem<H> + PartialEq,
-    H: Eq + Hash + Copy + Clone + 'static,
+    H: Eq + Hash + Copy + Clone + Send + Sync + 'static,
 {
     /// Sets the contained items of the table.
     ///
@@ -178,7 +178,7 @@ where
 impl<T, H> TableView<T, H>
 where
     T: TableViewItem<H>,
-    H: Eq + Hash + Copy + Clone + 'static,
+    H: Eq + Hash + Copy + Clone + Send + Sync + 'static,
 {
     /// Creates a new empty `TableView` without any columns.
     ///
@@ -367,9 +367,9 @@ where
     /// ```
     pub fn set_on_sort<F>(&mut self, cb: F)
     where
-        F: Fn(&mut Cursive, H, Ordering) + 'static,
+        F: Fn(&mut Cursive, H, Ordering) + Send + Sync + 'static,
     {
-        self.on_sort = Some(Rc::new(move |s, h, o| cb(s, h, o)));
+        self.on_sort = Some(Arc::new(move |s, h, o| cb(s, h, o)));
     }
 
     /// Sets a callback to be used when a selected column is sorted by
@@ -386,7 +386,7 @@ where
     /// ```
     pub fn on_sort<F>(self, cb: F) -> Self
     where
-        F: Fn(&mut Cursive, H, Ordering) + 'static,
+        F: Fn(&mut Cursive, H, Ordering) + Send + Sync + 'static,
     {
         self.with(|t| t.set_on_sort(cb))
     }
@@ -406,9 +406,9 @@ where
     /// ```
     pub fn set_on_submit<F>(&mut self, cb: F)
     where
-        F: Fn(&mut Cursive, usize, usize) + 'static,
+        F: Fn(&mut Cursive, usize, usize) + Send + Sync + 'static,
     {
-        self.on_submit = Some(Rc::new(move |s, row, index| cb(s, row, index)));
+        self.on_submit = Some(Arc::new(move |s, row, index| cb(s, row, index)));
     }
 
     /// Sets a callback to be used when `<Enter>` is pressed while an item
@@ -428,7 +428,7 @@ where
     /// ```
     pub fn on_submit<F>(self, cb: F) -> Self
     where
-        F: Fn(&mut Cursive, usize, usize) + 'static,
+        F: Fn(&mut Cursive, usize, usize) + Send + Sync + 'static,
     {
         self.with(|t| t.set_on_submit(cb))
     }
@@ -447,9 +447,9 @@ where
     /// ```
     pub fn set_on_select<F>(&mut self, cb: F)
     where
-        F: Fn(&mut Cursive, usize, usize) + 'static,
+        F: Fn(&mut Cursive, usize, usize) + Send + Sync + 'static,
     {
-        self.on_select = Some(Rc::new(move |s, row, index| cb(s, row, index)));
+        self.on_select = Some(Arc::new(move |s, row, index| cb(s, row, index)));
     }
 
     /// Sets a callback to be used when an item is selected.
@@ -468,7 +468,7 @@ where
     /// ```
     pub fn on_select<F>(self, cb: F) -> Self
     where
-        F: Fn(&mut Cursive, usize, usize) + 'static,
+        F: Fn(&mut Cursive, usize, usize) + Send + Sync + 'static,
     {
         self.with(|t| t.set_on_select(cb))
     }
@@ -680,7 +680,7 @@ where
 impl<T, H> TableView<T, H>
 where
     T: TableViewItem<H>,
-    H: Eq + Hash + Copy + Clone + 'static,
+    H: Eq + Hash + Copy + Clone + Send + Sync + 'static,
 {
     fn draw_columns<C: Fn(&Printer, &TableColumn<H>)>(
         &self,
@@ -983,7 +983,7 @@ where
 
     fn on_submit_event(&mut self) -> EventResult {
         if let Some(ref cb) = &self.on_submit {
-            let cb = Rc::clone(cb);
+            let cb = Arc::clone(cb);
             let row = self.row().unwrap();
             let index = self.item().unwrap();
             return EventResult::Consumed(Some(Callback::from_fn(move |s| cb(s, row, index))));
@@ -994,8 +994,8 @@ where
 
 impl<T, H> View for TableView<T, H>
 where
-    T: TableViewItem<H> + 'static,
-    H: Eq + Hash + Copy + Clone + 'static,
+    T: TableViewItem<H> + Send + Sync + 'static,
+    H: Eq + Hash + Copy + Clone + Send + Sync + 'static,
 {
     fn draw(&self, printer: &Printer) {
         self.draw_columns(printer, "╷ ", |printer, column| {
