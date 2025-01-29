@@ -120,6 +120,7 @@ pub struct TableView<T, H> {
     needs_relayout: bool,
 
     column_select: bool,
+    hide_sort_button: bool,
     columns: Vec<TableColumn<H>>,
     column_indicies: HashMap<H, usize>,
 
@@ -191,6 +192,7 @@ where
             needs_relayout: true,
 
             column_select: false,
+            hide_sort_button: false,
             columns: Vec::new(),
             column_indicies: HashMap::new(),
 
@@ -277,6 +279,10 @@ where
     pub fn default_column(mut self, column: H) -> Self {
         self.set_default_column(column);
         self
+    }``
+
+    pub fn columns(&self) -> Vec<H> {
+        self.columns.iter().map(|col| col.column).collect()
     }
 
     /// Sets the initially active column of the table.
@@ -291,6 +297,11 @@ where
                 }
             }
         }
+    }
+
+    pub fn hide_sort_button_header(mut self) -> Self {
+        self.hide_sort_button = true;
+        self
     }
 
     /// Sorts the table using the specified table `column` and the passed
@@ -1142,31 +1153,43 @@ impl<H: Copy + Clone + 'static> TableColumn<H> {
     }
 
     fn draw_header(&self, printer: &Printer) {
-        let order = match self.order {
-            Ordering::Less => "^",
-            Ordering::Greater => "v",
-            Ordering::Equal => " ",
+        // Determine sort indicator (only if sort button is visible)
+        let order = if self.hide_sort_button {
+            "" // No sort indicator if button is hidden
+        } else {
+            match self.order {
+                Ordering::Less => "^",
+                Ordering::Greater => "v",
+                Ordering::Equal => " ",
+            }
         };
 
-        let header = match self.alignment {
-            HAlign::Left => format!(
-                "{:<width$} [{}]",
-                self.title,
-                order,
-                width = self.width.saturating_sub(4)
-            ),
-            HAlign::Right => format!(
-                "{:>width$} [{}]",
-                self.title,
-                order,
-                width = self.width.saturating_sub(4)
-            ),
-            HAlign::Center => format!(
-                "{:^width$} [{}]",
-                self.title,
-                order,
-                width = self.width.saturating_sub(4)
-            ),
+        // Format header based on alignment and width
+        let header = if self.hide_sort_button {
+            // No sort button, use full width for title
+            format!("{:<width$}", self.title, width = self.width)
+        } else {
+            // Include sort button
+            match self.alignment {
+                HAlign::Left => format!(
+                    "{:<width$} [{}]",
+                    self.title,
+                    order,
+                    width = self.width.saturating_sub(4)
+                ),
+                HAlign::Right => format!(
+                    "{:>width$} [{}]",
+                    self.title,
+                    order,
+                    width = self.width.saturating_sub(4)
+                ),
+                HAlign::Center => format!(
+                    "{:^width$} [{}]",
+                    self.title,
+                    order,
+                    width = self.width.saturating_sub(4)
+                ),
+            }
         };
 
         printer.print((0, 0), header.as_str());
