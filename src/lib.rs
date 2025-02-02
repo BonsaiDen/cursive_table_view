@@ -553,7 +553,7 @@ where
         self.with(|t| t.set_items(items))
     }
 
-    /// Returns a immmutable reference to the item at the specified index
+    /// Returns a immutable reference to the item at the specified index
     /// within the underlying storage vector.
     pub fn borrow_item(&self, index: usize) -> Option<&T> {
         self.items.get(index)
